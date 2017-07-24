@@ -1,0 +1,8 @@
+bool request
+---
+int64[] object_num
+int64[] tl_x
+int64[] tl_y
+int64[] br_x
+int64[] br_y
+float64[] scores
