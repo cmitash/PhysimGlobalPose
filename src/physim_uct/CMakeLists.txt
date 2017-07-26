@@ -13,12 +13,33 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   image_transport 
   image_geometry
+  message_generation
+  geometry_msgs
 )
 find_package(OpenCV REQUIRED)
 
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_BUILD_TYPE Debug)
+
+## Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  ObjectPose.msg
+)
+
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  EstimateObjectPose.srv
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+  geometry_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -31,6 +52,8 @@ catkin_package(
   roscpp
   pcl_ros
   tf
+  message_generation
+  geometry_msgs
 )
 
 ###########
@@ -39,7 +62,7 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
+include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
@@ -47,10 +70,11 @@ include_directories(
   ${CATKIN_DEVEL_PREFIX}/include
 )
 
-MESSAGE("yo" ${CATKIN_DEVEL_PREFIX}/include)
-
 ## Declare a C++ executable
-add_executable(physim_uct src/physim_uct.cpp)
+add_executable(physim_uct src/physim_uct.cpp 
+                          src/APCObjects.cpp
+                          src/Scene.cpp)
+                          
 add_dependencies(physim_uct ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against

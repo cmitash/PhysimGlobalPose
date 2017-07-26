@@ -1,4 +1,4 @@
-bool request
+string scene_path
 ---
 int64[] object_num
 int64[] tl_x

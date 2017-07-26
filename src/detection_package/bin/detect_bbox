@@ -1,43 +1,25 @@
 #! /usr/bin/env python
-# import detection_package.src as detection_package
-import sys
-import os
+import sys, os
 
 # Verify if path is set in bashrc
-if os.environ.get('PHYSIM_6DPose_PATH') == None:
-    print("Please set PHYSIM_6DPose_PATH in bashrc!")
+if os.environ.get('PHYSIM_GLOBAL_POSE') == None:
+    print("Please set PHYSIM_GLOBAL_POSE in bashrc!")
     sys.exit()
 
-g_repo_path = os.environ['PHYSIM_6DPose_PATH']
+g_repo_path = os.environ['PHYSIM_GLOBAL_POSE']
 
-sys.path.append(g_repo_path + "/ros-packages/src")
-
-print (g_repo_path + "ros-packages/src")
+sys.path.append(g_repo_path + "/src")
 
 import detection_package._init_paths
 from fast_rcnn.config import cfg
-import caffe, os, sys, cv2
+import caffe, cv2
 import rospy
-from std_msgs.msg import String
-
-import cv2
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
-
 from detection_package.srv import *
 import detection_package.recognition
 import numpy as np
 
-from PIL import ImageChops
-from PIL import Image as PIL_Image
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-
-cam_mode = "hd"
 active_object_list = []
 active_frame = ''
-
-tmpdir = g_repo_path + '/tmp'
 
 apc_objects_strs = [
  "crayola_24_ct", "expo_dry_erase_board_eraser", "folgers_classic_roast_coffee",
@@ -50,7 +32,6 @@ apc_objects_strs = [
 
 class detection:
   def __init__(self, prototxt, caffemodel):
-    print "init"
     caffe.set_mode_gpu()
     caffe.set_device(0)
     self.net = caffe.Net(prototxt, caffemodel, caffe.TEST)
@@ -59,13 +40,16 @@ class detection:
     global active_object_list
     global active_frame
 
-    cv_image = cv2.imread(tmpdir + '/frame-' + active_frame + '.color.png', cv2.IMREAD_COLOR)
+    cv_image = cv2.imread(req.scene_path + 'frame-000000.color.png', cv2.IMREAD_COLOR)
+    print(active_object_list)
+    print(active_frame)
+    print(req.scene_path + 'frame-000000.color.png')
 
     bboxlist,scorelist = detection_package.recognition.detect(self.net, cv_image, active_object_list)
     blist = np.array(bboxlist)
     slist = np.array(scorelist)
 
-    directory = tmpdir + '/bbox_detections'
+    directory = req.scene_path + '/debug'
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -81,9 +65,9 @@ class detection:
             mask_img[int(tl_y[i]):int(br_y[i]),int(tl_x[i]):int(br_x[i])] = 1
             bbox_img = cv_image.copy()
             cv2.rectangle(bbox_img,(int(tl_x[i]),int(tl_y[i])),(int(br_x[i]),int(br_y[i])),255,1)
-            cv2.imwrite(tmpdir + '/bbox_detections/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.bbox.png',bbox_img)
-            cv2.imwrite(tmpdir + '/bbox_detections/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.mask.png',mask_img)
-            file = open(tmpdir + '/bbox_detections/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.score.txt','w')
+            cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.bbox.png',bbox_img)
+            cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.mask.png',mask_img)
+            file = open(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.score.txt','w')
             file.write("%f" % (slist[i]))
             file.close()
         return np.int64(active_object_list), tl_x, tl_y, br_x, br_y, slist 
@@ -105,7 +89,7 @@ if __name__ == '__main__':
     global caffemodel, prototxt
 
     caffemodel = os.path.join(cfg.DATA_DIR, 'faster_rcnn_models',
-                               'vgg_cnn_m_1024_faster_rcnn_iter_10000.caffemodel')
+                               'vgg_cnn_m_1024_faster_rcnn_iter_10000seed_3.caffemodel')
        
     prototxt = os.path.join(cfg.DATA_DIR, 'faster_rcnn_models',
                       'test.prototxt')
