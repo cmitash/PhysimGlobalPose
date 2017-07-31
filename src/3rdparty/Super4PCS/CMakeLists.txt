@@ -133,10 +133,10 @@ message(STATUS "-- Eigen3 root path: ${EIGEN3_INCLUDE_DIR}")
 ## Tests
 ################################################################################
 
-if(SUPER4PCS_COMPILE_TESTS)
-        include(cmake/ConfigureTesting.cmake)
-        add_subdirectory(tests EXCLUDE_FROM_ALL)
-endif(SUPER4PCS_COMPILE_TESTS)
+# if(SUPER4PCS_COMPILE_TESTS)
+#         include(cmake/ConfigureTesting.cmake)
+#         add_subdirectory(tests EXCLUDE_FROM_ALL)
+# endif(SUPER4PCS_COMPILE_TESTS)
 
 ################################################################################
 ## Project files

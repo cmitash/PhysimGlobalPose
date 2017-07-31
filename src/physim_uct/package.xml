@@ -24,6 +24,7 @@
   <run_depend>image_transport</run_depend>
   <run_depend>detection_package</run_depend>
   <run_depend>depth_sim</run_depend>
+  <run_depend>Super4PCS</run_depend>
   <run_depend>image_geometry</run_depend>
   <run_depend>cv_bridge</run_depend>
   <run_depend>roscpp</run_depend>

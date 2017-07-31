@@ -55,6 +55,7 @@ catkin_package(
   message_generation
   geometry_msgs
   depth_sim
+  Super4PCS
 )
 
 ###########
