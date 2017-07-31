@@ -10,10 +10,14 @@ namespace scene{
 		public:
 			Scene(std::string scenePath);
 			void performRCNNDetection();
-
+			void get3DSegments();
+			void removeTable();
+			std::vector<apc_objects::APCObjects*> getOrder();
+			
 			int numObjects;
 			std::string scenePath;
-			cv::Mat color_image, depth_image;
+			cv::Mat colorImage, depthImage;
+			PointCloud::Ptr sceneCloud;
 			std::vector<apc_objects::APCObjects*> sceneObjs;
 			Eigen::Matrix4f camPose;
 			Eigen::Matrix3f camIntrinsic;

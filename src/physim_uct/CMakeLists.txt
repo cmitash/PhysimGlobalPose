@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(OpenCV REQUIRED)
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_BUILD_TYPE Debug)
 
 ## Generate messages in the 'msg' folder
@@ -54,6 +54,7 @@ catkin_package(
   tf
   message_generation
   geometry_msgs
+  depth_sim
 )
 
 ###########
@@ -73,7 +74,10 @@ include_directories(
 ## Declare a C++ executable
 add_executable(physim_uct src/physim_uct.cpp 
                           src/APCObjects.cpp
-                          src/Scene.cpp)
+                          src/Scene.cpp
+                          src/State.cpp
+                          src/Search.cpp
+                          src/utilities.cpp)
                           
 add_dependencies(physim_uct ${catkin_EXPORTED_TARGETS})
 

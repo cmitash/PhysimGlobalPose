@@ -6,15 +6,17 @@
 namespace apc_objects{
 
 	extern std::map<std::string, int> objMap;
-	extern std::string path_pcl_models;
-	extern std::string path_obj_models;
+	extern std::string pathPclModels;
+	extern std::string pathObjModels;
 
 	class APCObjects{
 	public:
 		APCObjects(std::string name);
-		std::string objName;
+
 		int objIdx;
-		PointCloud::Ptr pcl_model;
+		std::string objName;
+		PointCloud::Ptr pclModel;
+		PointCloud::Ptr pclSegment;
 		cv::Rect bbox;
 	};
 }
