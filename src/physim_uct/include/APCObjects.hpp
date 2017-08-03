@@ -16,6 +16,7 @@ namespace apc_objects{
 		int objIdx;
 		std::string objName;
 		PointCloud::Ptr pclModel;
+		pcl::PolygonMesh objModel;
 		PointCloud::Ptr pclSegment;
 		cv::Rect bbox;
 	};

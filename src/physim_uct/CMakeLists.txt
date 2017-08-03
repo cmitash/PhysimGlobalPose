@@ -18,7 +18,6 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(OpenCV REQUIRED)
 
-
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_BUILD_TYPE Debug)
 
@@ -54,8 +53,6 @@ catkin_package(
   tf
   message_generation
   geometry_msgs
-  depth_sim
-  Super4PCS
 )
 
 ###########
@@ -87,4 +84,6 @@ target_link_libraries(physim_uct
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
+  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libSuper4PCS.so
+  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
 )

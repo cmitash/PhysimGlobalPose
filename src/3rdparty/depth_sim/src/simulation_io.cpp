@@ -28,21 +28,21 @@ pcl::simulation::SimExample::SimExample(int argc, char **argv,
 
   // 2. read mesh and setup model:
 
-  if (argc != 0 && argv != NULL) {
-    std::cout << "About to read: " << argv[2] << std::endl;
-    pcl::PolygonMesh mesh;	// (new pcl::PolygonMesh);
-    pcl::io::loadPolygonFile (argv[2], mesh);
-    pcl::PolygonMesh::Ptr cloud (new pcl::PolygonMesh (mesh));
+  // if (argc != 0 && argv != NULL) {
+  //   std::cout << "About to read: " << argv[2] << std::endl;
+  //   pcl::PolygonMesh mesh;	// (new pcl::PolygonMesh);
+  //   pcl::io::loadPolygonFile (argv[2], mesh);
+  //   pcl::PolygonMesh::Ptr cloud (new pcl::PolygonMesh (mesh));
 
-    // Not sure if PolygonMesh assumes triangles if to, TODO: Ask a developer
-    PolygonMeshModel::Ptr model = PolygonMeshModel::Ptr (new PolygonMeshModel (
-                                                           GL_POLYGON, cloud));
-    scene_->add (model);
+  //   // Not sure if PolygonMesh assumes triangles if to, TODO: Ask a developer
+  //   PolygonMeshModel::Ptr model = PolygonMeshModel::Ptr (new PolygonMeshModel (
+  //                                                          GL_POLYGON, cloud));
+  //   scene_->add (model);
 
-    std::cout << "Just read " << argv[2] << std::endl;
-    std::cout << mesh.polygons.size () << " polygons and "
-              << mesh.cloud.data.size () << " triangles\n";
-  }
+  //   std::cout << "Just read " << argv[2] << std::endl;
+  //   std::cout << mesh.polygons.size () << " polygons and "
+  //             << mesh.cloud.data.size () << " triangles\n";
+  // }
 
 
   // works well for MIT CSAIL model 3rd floor:

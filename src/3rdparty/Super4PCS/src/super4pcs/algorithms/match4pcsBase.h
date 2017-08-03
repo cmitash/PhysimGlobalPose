@@ -49,6 +49,7 @@
 #include "shared4pcs.h"
 #include "sampling.h"
 #include "accelerators/kdtree.h"
+#include "Eigen/Dense"
 
 #ifdef TEST_GLOBAL_TIMINGS
 #   include "utils/timer.h"
@@ -94,8 +95,8 @@ public:
     Scalar
     ComputeTransformation(const std::vector<Point3D>& P,
                           std::vector<Point3D>* Q,
-                          Eigen::Ref<MatrixType> transformation);
-
+                          Eigen::Isometry3d &bestPose,
+                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
 protected:
     // Number of trials. Every trial picks random base from P.
@@ -219,12 +220,13 @@ protected:
     // been reached), false otherwise.
     bool Perform_N_steps(int n,
                          Eigen::Ref<MatrixType> transformation,
-                         std::vector<Point3D>* Q);
+                         std::vector<Point3D>* Q,
+                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
     // Tries one base and finds the best transformation for this base.
     // Returns true if the achieved LCP is greater than terminate_threshold_,
     // else otherwise.
-    bool TryOneBase();
+    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -300,7 +302,8 @@ public:
                          int base_id3,
                          int base_id4,
                          const std::vector<match_4pcs::Quadrilateral> &congruent_quads,
-                         size_t &nbCongruent);
+                         size_t &nbCongruent,
+                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 private:
     void initKdTree();
 

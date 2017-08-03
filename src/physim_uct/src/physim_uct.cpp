@@ -1,5 +1,6 @@
 #include <APCObjects.hpp>
 #include <Scene.hpp>
+#include <Search.hpp>
 
 #include <physim_uct/EstimateObjectPose.h>
 #include <physim_uct/ObjectPose.h>
@@ -22,7 +23,8 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   currScene->get3DSegments();
   
   // Initialize the search
-  // Search UCTSearch = new Search(currScene);
+  search::Search *UCTSearch = new search::Search(currScene);
+  UCTSearch->heuristicSearch();
 
   for(int i=0; i<currScene->numObjects; i++){
     physim_uct::ObjectPose pose;

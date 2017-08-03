@@ -80,7 +80,7 @@ readHeader ( const char *filename,
                 in >> numOfFaces;
             }
             else{
-                cerr << "(PLY) ignoring unknown element " << current << endl;
+                // cerr << "(PLY) ignoring unknown element " << current << endl;
                 currentelement = "";
             }
         } else if (currentelement != "" && current == "property") {

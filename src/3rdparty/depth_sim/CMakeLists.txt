@@ -91,10 +91,16 @@ add_library(${PROJECT_NAME}
   src/model.cpp
   src/range_likelihood.cpp
   src/scene.cpp
-  src/sum_reduce.cpp)
+  src/sum_reduce.cpp
+  src/renderScene.cpp)
 
 target_link_libraries (${PROJECT_NAME} ${Boost_LIBRARIES} ${catkin_LIBRARIES}
                        ${VTK_IO_TARGET_LINK_LIBRARIES}
                        ${GLEW_LIBRARIES} ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES}
                        ${GLEW_LIBRARIES} libvtkCommon.so libvtkFiltering.so
                        libvtkRendering.so libvtkIO.so)
+
+MESSAGE(yo ${CATKIN_PACKAGE_LIB_DESTINATION})
+install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

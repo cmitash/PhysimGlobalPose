@@ -133,6 +133,18 @@ distSegmentToSegment(const VectorType& p1, const VectorType& p2,
   return ( w + (invariant1 * u) - (invariant2 * v)).norm();
 }
 
+static Eigen::Isometry3d convertToIsometry3d(Eigen::Matrix<float, 4, 4> &transformation){
+  Eigen::Isometry3d poseIsometry;
+  poseIsometry.setIdentity();
+
+  // std::cout << transformation <<std::endl;
+  for(int ii=0; ii<4; ii++)
+    for(int jj=0; jj<4; jj++){
+      poseIsometry.matrix()(ii,jj) = transformation(ii, jj);
+    }
+
+  return poseIsometry;
+}
 
 namespace Super4PCS{
 
@@ -290,7 +302,7 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     if (number_of_trials_ < kMinNumberOfTrials)
         number_of_trials_ = kMinNumberOfTrials;
 
-    printf("norm_max_dist: %f\n", options_.delta);
+    // printf("norm_max_dist: %f\n", options_.delta);
     current_trial_ = 0;
     best_LCP_ = 0.0;
 
@@ -495,7 +507,8 @@ bool Match4PCSBase::TryCongruentSet(
         int base_id3,
         int base_id4,
         const std::vector<match_4pcs::Quadrilateral>& congruent_quads,
-        size_t &nbCongruent){
+        size_t &nbCongruent,
+        std::vector< std::pair <Eigen::Isometry3d, float> > &allPose){
     std::array<std::pair<Point3D, Point3D>,4> congruent_points;
 
     // get references to the basis coordinates
@@ -572,6 +585,23 @@ bool Match4PCSBase::TryCongruentSet(
 
           // Verify the rest of the points in Q against P.
           Scalar lcp = Verify(transform);
+
+          Eigen::Matrix<float, 4, 4> transformation;
+          transformation = transform;
+          // The transformation has been computed between the two point clouds centered
+          // at the origin, we need to recompute the translation to apply it to the original clouds
+          {
+              Eigen::Matrix<Scalar, 3,1> centroid_P,centroid_Q;
+              centroid_P = centroid_P_;
+              centroid_Q = centroid_Q_;
+
+              Eigen::Matrix<Scalar, 3, 3> rot, scale;
+              Eigen::Transform<Scalar, 3, Eigen::Affine> (transformation).computeRotationScaling(&rot, &scale);
+              transformation.col(3) = (centroid1 + centroid_P - ( rot * scale * (centroid2 + centroid_Q))).homogeneous();
+          }
+
+          allPose.push_back(std::make_pair(convertToIsometry3d(transformation), lcp));
+
           if (lcp > best_LCP_) {
             // Retain the best LCP and transformation.
             base_[0] = base_id1;
@@ -853,20 +883,22 @@ Match4PCSBase::Verify(const Eigen::Ref<const MatrixType> &mat) {
   return Scalar(good_points) / Scalar(number_of_points);
 }
 
-
-
 // The main 4PCS function. Computes the best rigid transformation and transfoms
 // Q toward P by this transformation.
 Match4PCSBase::Scalar
 Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
                                      std::vector<Point3D>* Q,
-                                     Eigen::Ref<MatrixType> transformation) {
+                                     Eigen::Isometry3d &bestPose, 
+                                     std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
 
   if (Q == nullptr) return kLargeNumber;
   init(P, *Q);
 
+  Eigen::Matrix<Scalar, 4, 4> transformation;
   transformation = MatrixType::Identity();
-  Perform_N_steps(number_of_trials_, transformation, Q);
+  Perform_N_steps(number_of_trials_, transformation, Q, allPose);
+
+  bestPose = convertToIsometry3d(transformation);
 
 #ifdef TEST_GLOBAL_TIMINGS
   std::cout << "----------- Timings (msec) -------------"          << std::endl;
@@ -883,7 +915,8 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
 // transforms the set Q by this optimal transformation.
 bool Match4PCSBase::Perform_N_steps(int n,
                                     Eigen::Ref<MatrixType> transformation,
-                                    std::vector<Point3D>* Q) {
+                                    std::vector<Point3D>* Q,
+                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
 	using std::chrono::system_clock;
   if (Q == nullptr) return false;
 
@@ -895,7 +928,7 @@ bool Match4PCSBase::Perform_N_steps(int n,
   bool ok = false;
   std::chrono::time_point<system_clock> t0 = system_clock::now(), end;
   for (int i = current_trial_; i < current_trial_ + n; ++i) {
-    ok = TryOneBase();
+    ok = TryOneBase(allPose);
 
     Scalar fraction_try  = Scalar(i) / Scalar(number_of_trials_);
     Scalar fraction_time = 
@@ -903,9 +936,9 @@ bool Match4PCSBase::Perform_N_steps(int n,
 		(system_clock::now() - t0).count() /
                           options_.max_time_seconds;
     Scalar fraction = std::max(fraction_time, fraction_try);
-    printf("done: %d%c best: %f                  \r",
-           static_cast<int>(fraction * 100), '%', best_LCP_);
-    fflush(stdout);
+    // printf("done: %d%c best: %f                  \r",
+    //        static_cast<int>(fraction * 100), '%', best_LCP_);
+    // fflush(stdout);
     // ok means that we already have the desired LCP.
     if (ok || i > number_of_trials_ || fraction >= 0.99 || best_LCP_ == 1.0) break;
   }
@@ -952,7 +985,7 @@ bool Match4PCSBase::Perform_N_steps(int n,
 // Pick one base, finds congruent 4-points in Q, verifies for all
 // transformations, and retains the best transformation and LCP. This is
 // a complete RANSAC iteration.
-bool Match4PCSBase::TryOneBase() {
+bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
   Scalar invariant1, invariant2;
   int base_id1, base_id2, base_id3, base_id4;
 
@@ -1025,7 +1058,7 @@ bool Match4PCSBase::TryOneBase() {
 
   bool match = TryCongruentSet(base_id1, base_id2, base_id3, base_id4,
                                congruent_quads,
-                               nb);
+                               nb, allPose);
 
   //if (nb != 0)
   //    std::cout << "Congruent quads: (" << nb << ")    " << std::endl;

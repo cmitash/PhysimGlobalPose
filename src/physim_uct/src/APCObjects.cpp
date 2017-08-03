@@ -1,5 +1,4 @@
 #include <APCObjects.hpp>
-#include <pcl/io/pcd_io.h>
 
 namespace apc_objects{
 	std::map<std::string, int> objMap = boost::assign::map_list_of ("crayola_24_ct", 1)("expo_dry_erase_board_eraser", 2)("folgers_classic_roast_coffee", 3)
@@ -15,5 +14,11 @@ namespace apc_objects{
 		objIdx = objMap[name];
 		pclModel = PointCloud::Ptr(new PointCloud);
 		pcl::io::loadPCDFile(env_p + pathPclModels + name + ".pcd", *pclModel);
+		pcl::io::loadPolygonFile(env_p + pathObjModels + name + ".obj" , objModel);
+
+		pcl::VoxelGrid<pcl::PointXYZ> sor;
+		sor.setInputCloud (pclModel);
+		sor.setLeafSize (0.005f, 0.005f, 0.005f);
+		sor.filter (*pclModel);
 	}
 }

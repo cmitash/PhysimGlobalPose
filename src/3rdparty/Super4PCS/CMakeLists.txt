@@ -141,6 +141,7 @@ message(STATUS "-- Eigen3 root path: ${EIGEN3_INCLUDE_DIR}")
 ################################################################################
 ## Project files
 ################################################################################
+catkin_package(LIBRARIES ${PROJECT_NAME})
 
 include_directories(${SRC_DIR})
 set(Super4PCS_SRC
@@ -162,10 +163,10 @@ add_subdirectory(${SRC_DIR}/io)
 add_subdirectory(${SRC_DIR}/utils)
 add_subdirectory(${SRC_DIR}/accelerators)
 
-add_library(super4pcs_algo  ${Super4PCS_SRC} ${Super4PCS_INCLUDE})
+add_library(${PROJECT_NAME} ${SRC_DIR}/super4pcs_test.cc ${Super4PCS_SRC} ${Super4PCS_INCLUDE})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} super4pcs_io super4pcs_accel super4pcs_utils)
 
-# add the executable
-add_executable(${PROJECT_NAME} ${SRC_DIR}/super4pcs_test.cc)
-
-TARGET_LINK_LIBRARIES(super4pcs_algo super4pcs_io super4pcs_accel)
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} super4pcs_algo super4pcs_utils)
+MESSAGE(yo ${CATKIN_PACKAGE_LIB_DESTINATION})
+install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
