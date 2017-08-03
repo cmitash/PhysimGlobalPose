@@ -14,6 +14,7 @@ namespace state{
 			void render(Eigen::Matrix4f, std::string, cv::Mat &depth_image);
 			void updateStateId(int num);
 			void computeCost(cv::Mat renderedImg, cv::Mat obsImg);
+			void performICP();
 
 			std::string stateId;
 			unsigned int numObjects;

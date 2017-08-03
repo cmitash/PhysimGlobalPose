@@ -6,11 +6,17 @@ void clearScene();
 
 namespace state{
 	
+	/********************************* function: constructor ***********************************************
+	*******************************************************************************************************/
+
 	State::State(unsigned int numObjects){
 		this->numObjects = numObjects;
 		hval = INT_MAX;
 		score = INT_MAX;
 	}
+
+	/********************************* function: expand ****************************************************
+	*******************************************************************************************************/
 
 	void State::expand(){
 		std::cout << "***************State::expand***************" << std::endl;
@@ -21,10 +27,16 @@ namespace state{
 		}
 	}
 
+	/********************************* function: copyParent ************************************************
+	*******************************************************************************************************/
+
 	void State::copyParent(State* copyFrom){
 		this->objects = copyFrom->objects;
 		this->stateId = copyFrom->stateId;
 	}
+
+	/********************************* function: render ****************************************************
+	*******************************************************************************************************/
 
 	void State::render(Eigen::Matrix4f cam_pose, std::string scenePath, cv::Mat &depth_image){
 		clearScene();
@@ -40,16 +52,25 @@ namespace state{
 		renderDepth(cam_pose, depth_image, scenePath + "/debug/render" + stateId + ".png");
 	}
 
+	/********************************* function: updateNewObject *******************************************
+	*******************************************************************************************************/
+
 	void State::updateNewObject(apc_objects::APCObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
 		objects.push_back(std::make_pair(newObj, pose.first));
 		hval = (1 - pose.second)*(maxDepth - numObjects);
 	}
+
+	/********************************* function: updateStateId *********************************************
+	*******************************************************************************************************/
 
 	void State::updateStateId(int num){
 		char nums[20];
 		sprintf(nums,"_%d", num);
 		stateId.append(nums);
 	}
+
+	/********************************* function: computeCost ***********************************************
+	*******************************************************************************************************/
 
 	void State::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
 		renderedImg.convertTo(renderedImg, CV_32FC1);
@@ -77,5 +98,28 @@ namespace state{
 	    score = obScore + renScore - intScore;
 	    std::cout<<"score: "<<score<<std::endl;
 	}
+
+	/********************************* function: performICP ************************************************
+	*******************************************************************************************************/
+
+	void State::performICP(){
+		if(!numObjects)
+			return;
+		PointCloud::Ptr transformedCloud (new PointCloud);
+		PointCloud icptransformedCloud;
+		Eigen::Matrix4f tform;
+		utilities::convertToMatrix(objects[numObjects-1].second, tform);
+		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
+
+		pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+		icp.setInputCloud(transformedCloud);
+		icp.setInputTarget(objects[numObjects-1].first->pclSegment);
+		icp.align(icptransformedCloud);
+		tform = icp.getFinalTransformation()*tform;
+		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
+	}
+
+	/********************************* end of functions ****************************************************
+	*******************************************************************************************************/
 
 } // namespace

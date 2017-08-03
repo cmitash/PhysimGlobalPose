@@ -6,19 +6,26 @@ bool operator<(const state::State& lhs, const state::State& rhs) {
 
 namespace search{
 	
+	/********************************* function: constructor ***********************************************
+	*******************************************************************************************************/
+
 	Search::Search(scene::Scene *currScene){
 		rootState = new state::State(0);
 		rootState->updateStateId(0);
 
 		this->currScene = currScene;
-		objOrder = currScene->getOrder();
-		currScene->getUnconditionedHypothesis(unconditionedHypothesis, objOrder);
+		this->objOrder = currScene->objOrder;
+		this->unconditionedHypothesis = currScene->unconditionedHypothesis;
 	}
+
+	/********************************* function: expandNode ***********************************************
+	*******************************************************************************************************/
 
 	void Search::expandNode(state::State* expState){
 		expState->expand();
-		unsigned int maxDepth = objOrder.size();
+		expState->performICP();
 
+		unsigned int maxDepth = objOrder.size();
 		if(expState->numObjects == maxDepth){
 			cv::Mat depth_image;
 			expState->render(currScene->camPose, currScene->scenePath, depth_image);
@@ -36,6 +43,9 @@ namespace search{
 		}
 	}
 
+	/********************************* function: heuristicSearch *******************************************
+	*******************************************************************************************************/
+
 	void Search::heuristicSearch(){
 		const clock_t begin_time = clock();
 		
@@ -50,4 +60,7 @@ namespace search{
 			expandNode(expState);
 		}
 	}
+
+	/********************************* end of functions ****************************************************
+	*******************************************************************************************************/
 }

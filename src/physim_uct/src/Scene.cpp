@@ -162,8 +162,8 @@ namespace scene{
 	/********************************* function: getOrder **************************************************
 	*******************************************************************************************************/
 
-	std::vector<apc_objects::APCObjects*> Scene::getOrder(){
-		return sceneObjs;
+	void Scene::getOrder(){
+		objOrder = sceneObjs;
 	}
 
 	/********************************* function: getHypothesis *********************************************
@@ -190,8 +190,7 @@ namespace scene{
 	/********************************* function: getUnconditionedHypothesis ********************************
 	*******************************************************************************************************/
 
-	void Scene::getUnconditionedHypothesis(std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > &unconditionedHypothesis,
-											std::vector<apc_objects::APCObjects*> objOrder){
+	void Scene::getUnconditionedHypothesis(){
 		for(int i=0;i<objOrder.size();i++){
 			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
 			getHypothesis(objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);

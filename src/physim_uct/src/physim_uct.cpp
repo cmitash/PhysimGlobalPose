@@ -9,6 +9,9 @@
 std::string env_p;
 std::vector<apc_objects::APCObjects*> Objects;
 
+/********************************* function: estimatePose ***********************************************
+********************************************************************************************************/
+
 bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
                   physim_uct::EstimateObjectPose::Response &res){
   std::string scenePath(req.SceneFiles);
@@ -21,7 +24,9 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   currScene->removeTable();
   currScene->performRCNNDetection();
   currScene->get3DSegments();
-  
+  currScene->getOrder();
+  currScene->getUnconditionedHypothesis();
+
   // Initialize the search
   search::Search *UCTSearch = new search::Search(currScene);
   UCTSearch->heuristicSearch();
@@ -44,7 +49,9 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   return true;
 }
 
-// load objects from APC 2016 setting
+/********************************* function: loadObjects ***********************************************
+********************************************************************************************************/
+
 void loadObjects(std::vector<apc_objects::APCObjects*> &Objects){
   static std::vector<std::string> apc_objects_strs;
   apc_objects_strs.push_back("crayola_24_ct");
@@ -65,6 +72,9 @@ void loadObjects(std::vector<apc_objects::APCObjects*> &Objects){
   }
 }
 
+/********************************* function: main *******************************************************
+********************************************************************************************************/
+
 int main(int argc, char **argv){
   ros::init(argc, argv, "physim_node");
   ros::NodeHandle n;
@@ -84,3 +94,6 @@ int main(int argc, char **argv){
 
   return 0;
 }
+
+/********************************* end of functions ****************************************************
+*******************************************************************************************************/

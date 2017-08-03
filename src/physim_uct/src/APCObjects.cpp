@@ -1,6 +1,7 @@
 #include <APCObjects.hpp>
 
 namespace apc_objects{
+	
 	std::map<std::string, int> objMap = boost::assign::map_list_of ("crayola_24_ct", 1)("expo_dry_erase_board_eraser", 2)("folgers_classic_roast_coffee", 3)
 									 ("scotch_duct_tape", 4)("dasani_water_bottle", 5)("jane_eyre_dvd", 6)
 									 ("up_glucose_bottle", 7)("laugh_out_loud_joke_book", 8)("soft_white_lightbulb", 9)
@@ -8,6 +9,9 @@ namespace apc_objects{
 									 ("dr_browns_bottle_brush", 13)("elmers_washable_no_run_school_glue", 14)("rawlings_baseball", 15);
 	std::string pathPclModels = "/models/pcl/";
 	std::string pathObjModels = "/models/obj/";
+
+	/********************************* function: constructor ***********************************************
+	*******************************************************************************************************/
 
 	APCObjects::APCObjects(std::string name){
 		objName = name;
