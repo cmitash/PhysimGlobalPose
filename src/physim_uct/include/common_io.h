@@ -69,6 +69,7 @@ namespace utilities{
 	void convertToMatrix(Eigen::Isometry3d &from, Eigen::Matrix4f &to);
 	void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
+	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose);
 }
 
 #endif

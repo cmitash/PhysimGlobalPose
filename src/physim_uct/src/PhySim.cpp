@@ -19,7 +19,6 @@ namespace physim{
 
 	void PhySim::addTable(float tableHt){
 		btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(50.),btScalar(50.),btScalar(50.)));
-		collisionShapes.push_back(groundShape);
 
 		btTransform groundTransform;
 		groundTransform.setIdentity();
@@ -50,9 +49,7 @@ namespace physim{
 		float scaling[4] = {1,1,1,1};
 		btVector3 localScaling(scaling[0],scaling[1],scaling[2]);
 		shape->setLocalScaling(localScaling);
-		
 		shape->setMargin(0.001);
-		collisionShapes.push_back(shape);
 
 		btScalar mass(10.f);
 		bool isDynamic = (mass != 0.f);
@@ -63,12 +60,13 @@ namespace physim{
 		btRigidBody* body = new btRigidBody(mass,0,shape,localInertia);
 		body->setDamping(0.99f,0.99f);
 		rBodyMap[objName] = body;
+		cShapes[objName] = shape;
 	}
 
 	/********************************* function: addObjects ************************************************
 	*******************************************************************************************************/
 
-	void PhySim::addObject(std::string objName, Eigen::Isometry3d tform){
+	void PhySim::addObject(std::string objName, Eigen::Isometry3d tform, float mass){
 		Eigen::Vector3d trans = tform.translation();
 		Eigen::Quaterniond rot(tform.rotation());
 		btVector3 position(trans[0], trans[1], trans[2]);
@@ -79,7 +77,14 @@ namespace physim{
 		startTransform.setOrigin(position);
 		startTransform.setRotation(quat);
 			
-		rBodyMap[objName]->setWorldTransform(startTransform);
+		rBodyMap[objName]->proceedToTransform(startTransform);
+
+		bool isDynamic = (mass != 0.f);
+		btVector3 localInertia(0,0,0);
+		if (isDynamic)
+			cShapes[objName]->calculateLocalInertia(mass,localInertia);
+
+		rBodyMap[objName]->setMassProps(mass, localInertia);
 	    dynamicsWorld->addRigidBody(rBodyMap[objName]);
 	}
 
@@ -110,7 +115,7 @@ namespace physim{
 	*******************************************************************************************************/
 
 	void PhySim::removeObject(std::string objName){
-		dynamicsWorld->removeCollisionObject(rBodyMap[objName]);
+		dynamicsWorld->removeRigidBody(rBodyMap[objName]);
 	}
 
 	/********************************* function: destructor **********************************************
@@ -118,9 +123,8 @@ namespace physim{
 
 	PhySim::~PhySim(){
 		// deleting collision shapes
-		for (int j=0;j<collisionShapes.size();j++) {
-			btCollisionShape* shape = collisionShapes[j];
-			collisionShapes[j] = 0;
+		for (std::map<std::string, btCollisionShape*>::iterator it=cShapes.begin(); it!=cShapes.end(); ++it){
+			btCollisionShape* shape = it->second;
 			delete shape;
 		}
 

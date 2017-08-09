@@ -17,6 +17,8 @@ namespace search{
 			scene::Scene *currScene;
 			std::vector<apc_objects::APCObjects*> objOrder;
 			physim::PhySim *pSim;
+			state::State *bestState;
+			unsigned int bestScore;
 			
 			std::priority_queue<state::State*> pq;
 			std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis;

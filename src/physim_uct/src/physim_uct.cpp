@@ -5,6 +5,10 @@
 #include <physim_uct/EstimateObjectPose.h>
 #include <physim_uct/ObjectPose.h>
 
+
+// mode of operation
+bool performSearch = 1;
+
 // Global definations
 std::string env_p;
 std::vector<apc_objects::APCObjects*> Objects;
@@ -30,23 +34,54 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   currScene->getOrder();
   currScene->getUnconditionedHypothesis();
 
-  // Initialize the search
-  search::Search *UCTSearch = new search::Search(currScene);
-  UCTSearch->heuristicSearch();
+  if(performSearch){
+    search::Search *UCTSearch = new search::Search(currScene);
+    UCTSearch->heuristicSearch();
 
-  for(int i=0; i<currScene->numObjects; i++){
-    physim_uct::ObjectPose pose;
-    geometry_msgs::Pose msg;
-    msg.position.x = 0;
-    msg.position.y = 0;
-    msg.position.z = 0;
-    msg.orientation.x = 0;
-    msg.orientation.y = 0;
-    msg.orientation.z = 0;
-    msg.orientation.w = 1;
-    pose.label = "ob";
-    pose.pose = msg;
-    res.Objects.push_back(pose);
+    if(!UCTSearch->bestState->numObjects)
+      std::cout<<"Not enough time to search !!!"<<std::endl;
+    else{
+      std::cout<<"Best State id is: " << UCTSearch->bestState->stateId <<std::endl;
+    }
+
+    for(int i=0; i<UCTSearch->bestState->numObjects; i++){
+      physim_uct::ObjectPose pose;
+      geometry_msgs::Pose msg;
+
+      Eigen::Vector3d trans = UCTSearch->bestState->objects[i].second.translation();
+      Eigen::Quaterniond rot(UCTSearch->bestState->objects[i].second.rotation());
+
+      msg.position.x = trans[0];
+      msg.position.y = trans[1];
+      msg.position.z = trans[2];
+      msg.orientation.x = rot.x();
+      msg.orientation.y = rot.y();
+      msg.orientation.z = rot.z();
+      msg.orientation.w = rot.w();
+      pose.label = UCTSearch->bestState->objects[i].first->objName;
+      pose.pose = msg;
+      res.Objects.push_back(pose);
+    }
+  } 
+  else {
+    currScene->getBestSuper4PCS();
+    for(int i=0; i<currScene->numObjects; i++){
+      physim_uct::ObjectPose pose;
+      geometry_msgs::Pose msg;
+      Eigen::Vector3d trans = currScene->max4PCSPose[i].translation();
+      Eigen::Quaterniond rot(currScene->max4PCSPose[i].rotation()); 
+
+      msg.position.x = trans[0];
+      msg.position.y = trans[1];
+      msg.position.z = trans[2];
+      msg.orientation.x = rot.x();
+      msg.orientation.y = rot.y();
+      msg.orientation.z = rot.z();
+      msg.orientation.w = rot.w();
+      pose.label = currScene->objOrder[i]->objName;
+      pose.pose = msg;
+      res.Objects.push_back(pose);
+    }
   }
   
   return true;

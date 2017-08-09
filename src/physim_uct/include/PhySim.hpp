@@ -21,14 +21,14 @@ namespace physim{
 	class PhySim{
 		public:
 			btDiscreteDynamicsWorld* dynamicsWorld;
-			btAlignedObjectArray<btCollisionShape*> collisionShapes;
 			std::map<std::string, btRigidBody*> rBodyMap;
+			std::map<std::string, btCollisionShape*> cShapes;
 
 			PhySim();
 			~PhySim();
 			void addTable(float tableHt);
 			void initRigidBody(std::string);
-			void addObject(std::string objName, Eigen::Isometry3d tform);
+			void addObject(std::string objName, Eigen::Isometry3d tform, float mass);
 			void removeObject(std::string objName);
 			void simulate(int num_steps);
 			void getTransform(std::string objName, Eigen::Isometry3d &tform);

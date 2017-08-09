@@ -15,8 +15,8 @@ namespace state{
 			void render(Eigen::Matrix4f, std::string, cv::Mat &depth_image);
 			void updateStateId(int num);
 			void computeCost(cv::Mat renderedImg, cv::Mat obsImg);
-			void performICP(std::string scenePath);
-			void performTrICP(std::string scenePath);
+			void performICP(std::string scenePath, float max_corr);
+			void performTrICP(std::string scenePath, float trimPercentage);
 			void correctPhysics(physim::PhySim*, Eigen::Matrix4f, std::string);
 
 			std::string stateId;

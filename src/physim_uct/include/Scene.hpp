@@ -16,6 +16,7 @@ namespace scene{
 			void getHypothesis(PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 				std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 			void getUnconditionedHypothesis();
+			std::vector<Eigen::Isometry3d> getBestSuper4PCS();
 			
 			int numObjects;
 			std::string scenePath;
@@ -24,6 +25,7 @@ namespace scene{
 			std::vector<apc_objects::APCObjects*> sceneObjs;
 			std::vector<apc_objects::APCObjects*> objOrder;
 			std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis;
+			std::vector<Eigen::Isometry3d> max4PCSPose;
 			Eigen::Matrix4f camPose;
 			Eigen::Matrix3f camIntrinsic;
 	};

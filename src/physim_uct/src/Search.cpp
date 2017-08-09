@@ -17,6 +17,10 @@ namespace search{
 		this->objOrder = currScene->objOrder;
 		this->unconditionedHypothesis = currScene->unconditionedHypothesis;
 
+		// initialize best state
+		bestState = rootState;
+		bestScore = INT_MAX;
+
 		// initialize physics engine
 		pSim = new physim::PhySim();
 		pSim->addTable(0.53);
@@ -29,7 +33,8 @@ namespace search{
 
 	void Search::expandNode(state::State* expState){
 		expState->expand();
-		expState->performTrICP(currScene->scenePath);
+		expState->performTrICP(currScene->scenePath, 0.9);
+		// expState->performICP(currScene->scenePath, 0.008);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
 
 		unsigned int maxDepth = objOrder.size();
@@ -37,6 +42,10 @@ namespace search{
 			cv::Mat depth_image;
 			expState->render(currScene->camPose, currScene->scenePath, depth_image);
 			expState->computeCost(depth_image, currScene->depthImage);
+			if(expState->score < bestScore){
+				bestState = expState;
+				bestScore = expState->score;
+			}
 		}
 		else{
 			unsigned int nextDepthLevel = expState->numObjects + 1;
@@ -59,7 +68,7 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 1)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 10)
 				break;
 			
 			state::State *expState = pq.top();

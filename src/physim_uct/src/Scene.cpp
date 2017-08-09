@@ -1,4 +1,5 @@
 #include <Scene.hpp>
+#include <State.hpp>
 #include <fstream>
 
 #include <detection_package/UpdateActiveListFrame.h>
@@ -177,7 +178,9 @@ namespace scene{
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allPose);
 
 		std::cout << "bestScore: " << bestscore <<std::endl; 
-		std::cout << "BestTransform: " << bestPose.matrix() << std::endl;
+		// std::cout << "BestTransform: " << bestPose.matrix() << std::endl;
+		max4PCSPose.push_back(bestPose);
+
 		std::cout << "Scene::getHypothesis: Super4PCS time: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
 	}
 
@@ -191,6 +194,19 @@ namespace scene{
 			unconditionedHypothesis.push_back(allPose);
 			std::cout << "object hypothesis count: " << allPose.size() << std::endl;
 		}
+	}
+
+	/********************************* function: getBestSuper4PCS ******************************************
+	*******************************************************************************************************/
+
+	std::vector<Eigen::Isometry3d> Scene::getBestSuper4PCS(){
+		state::State* max4PCSState = new state::State(numObjects);
+		max4PCSState->updateStateId(-1);
+		for(int i=0;i<objOrder.size();i++)
+			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i], 0.f), numObjects);
+		cv::Mat depth_image;
+		max4PCSState->render(camPose, scenePath, depth_image);
+		return max4PCSPose;
 	}
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/

@@ -181,11 +181,19 @@ namespace utilities{
 			for(int jj=0; jj<4; jj++)
 				to.matrix()(ii,jj) = from(ii, jj);
 	}
+
 	/********************************* function: convertToWorld ********************************************
 	*******************************************************************************************************/
 
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose){
 		transform = cam_pose*transform;
+	}
+
+	/********************************* function: convertToCamera *******************************************
+	*******************************************************************************************************/
+
+	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose){
+		tform = cam_pose.inverse().eval()*tform;
 	}
 	
 	/********************************* end of functions ****************************************************
