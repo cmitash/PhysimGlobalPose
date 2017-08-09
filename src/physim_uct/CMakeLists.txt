@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(physim_uct)
 
+# set(PCL_DIR /home/chaitanya/software/pcl-pcl-1.7.2/build)
 find_package (PCL REQUIRED COMPONENTS io common visualization features) 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -67,15 +68,29 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${CATKIN_DEVEL_PREFIX}/include
+  $ENV{BULLET_PHYSICS_PATH}/src
 )
 
+set(RIGIDBODY_EXAMPLE_OBJS $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/LoadMeshFromObj.o
+                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/tiny_obj_loader.o
+                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/Wavefront2GLInstanceGraphicsShape.o
+                           )
+
+set(BULLET_LIBS $ENV{BULLET_PHYSICS_PATH}/bin/libBulletDynamics_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libBulletCollision_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libLinearMath_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libBullet3Common_gmake_x64_release.a)
+
 ## Declare a C++ executable
-add_executable(physim_uct src/physim_uct.cpp 
+add_executable(physim_uct ${RIGIDBODY_EXAMPLE_OBJS}
+                          src/physim_uct.cpp 
                           src/APCObjects.cpp
                           src/Scene.cpp
                           src/State.cpp
                           src/Search.cpp
-                          src/utilities.cpp)
+                          src/utilities.cpp
+                          src/PhySim.cpp
+                          )
                           
 add_dependencies(physim_uct ${catkin_EXPORTED_TARGETS})
 
@@ -86,4 +101,5 @@ target_link_libraries(physim_uct
   ${PCL_LIBRARIES}
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libSuper4PCS.so
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
+  ${BULLET_LIBS}
 )

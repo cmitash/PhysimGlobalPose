@@ -44,6 +44,8 @@
 
 // For ICP
 #include <pcl/registration/icp.h>
+#include <pcl/recognition/ransac_based/auxiliary.h>
+#include <pcl/recognition/ransac_based/trimmed_icp.h>
 
 #include <geometry_msgs/Pose.h>
 
@@ -56,17 +58,17 @@ extern std::string env_p;
 
 // Declaration for common utility functions
 namespace utilities{
-std::string type2str(int type);
-void convert3dOrganized(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
-void convert3dUnOrganized(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
-boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
-void readDepthImage(cv::Mat &depthImg, std::string path);
-void writeDepthImage(cv::Mat &depthImg, std::string path);
-void convert2d(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
-void TransformPolyMesh(const pcl::PolygonMesh::Ptr &mesh_in, pcl::PolygonMesh::Ptr &mesh_out, Eigen::Matrix4f transform);
-void convertToMatrix(Eigen::Isometry3d &from, Eigen::Matrix4f &to);
-void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
-void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
+	std::string type2str(int type);
+	void convert3dOrganized(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
+	void convert3dUnOrganized(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
+	void readDepthImage(cv::Mat &depthImg, std::string path);
+	void writeDepthImage(cv::Mat &depthImg, std::string path);
+	void convert2d(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
+	void TransformPolyMesh(const pcl::PolygonMesh::Ptr &mesh_in, pcl::PolygonMesh::Ptr &mesh_out, Eigen::Matrix4f transform);
+	void convertToMatrix(Eigen::Isometry3d &from, Eigen::Matrix4f &to);
+	void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
+	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
 }
 
 #endif

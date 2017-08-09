@@ -9,6 +9,9 @@
 std::string env_p;
 std::vector<apc_objects::APCObjects*> Objects;
 
+// depth_sim package
+void initScene (int argc, char **argv);
+
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
 
@@ -78,6 +81,10 @@ void loadObjects(std::vector<apc_objects::APCObjects*> &Objects){
 int main(int argc, char **argv){
   ros::init(argc, argv, "physim_node");
   ros::NodeHandle n;
+  
+  // Initialize openGL for rendering
+  initScene (0, NULL);
+
   if(const char* env = std::getenv("PHYSIM_GLOBAL_POSE")){
       std::cout << "Your PHYSIM_GLOBAL_POSE repository is: " << env << std::endl;
       env_p = std::string(env);

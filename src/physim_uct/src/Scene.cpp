@@ -8,9 +8,6 @@
 int getProbableTransformsSuper4PCS(std::string input1, std::string input2, Eigen::Isometry3d &bestPose, 
               float &bestscore, std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
-// depth_sim package
-void initScene (int argc, char **argv);
-
 namespace scene{
 
 	/********************************* function: constructor ***********************************************
@@ -48,9 +45,6 @@ namespace scene{
 
 	  	colorImage = cv::imread(scenePath + "frame-000000.color.png", CV_LOAD_IMAGE_COLOR);
 	    utilities::readDepthImage(depthImage, scenePath + "frame-000000.depth.png");
-
-	    // Initialize openGL for rendering
-		initScene (0, NULL);
 	} 
 
 	/********************************* function: performRCNNDetection **************************************

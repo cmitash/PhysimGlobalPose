@@ -3,6 +3,7 @@
 
 #include <State.hpp>
 #include <Scene.hpp>
+#include <PhySim.hpp>
 
 namespace search{
 	
@@ -15,6 +16,7 @@ namespace search{
 			state::State *rootState;
 			scene::Scene *currScene;
 			std::vector<apc_objects::APCObjects*> objOrder;
+			physim::PhySim *pSim;
 			
 			std::priority_queue<state::State*> pq;
 			std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis;

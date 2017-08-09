@@ -16,6 +16,12 @@ namespace search{
 		this->currScene = currScene;
 		this->objOrder = currScene->objOrder;
 		this->unconditionedHypothesis = currScene->unconditionedHypothesis;
+
+		// initialize physics engine
+		pSim = new physim::PhySim();
+		pSim->addTable(0.53);
+		for(int ii=0; ii<objOrder.size(); ii++)
+			pSim->initRigidBody(objOrder[ii]->objName);
 	}
 
 	/********************************* function: expandNode ***********************************************
@@ -23,7 +29,8 @@ namespace search{
 
 	void Search::expandNode(state::State* expState){
 		expState->expand();
-		expState->performICP();
+		expState->performTrICP(currScene->scenePath);
+		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
 
 		unsigned int maxDepth = objOrder.size();
 		if(expState->numObjects == maxDepth){
@@ -52,7 +59,7 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 10)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 1)
 				break;
 			
 			state::State *expState = pq.top();

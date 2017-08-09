@@ -76,7 +76,6 @@ pcl::simulation::SimExample::initializeGL (int argc, char **argv) {
   glutInitWindowSize (10, 10);
   //glutInitWindowSize (window_width_, window_height_);
   glutCreateWindow ("OpenGL range likelihood");
-
   GLenum err = glewInit ();
 
   if (GLEW_OK != err) {
