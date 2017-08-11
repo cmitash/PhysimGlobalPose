@@ -92,6 +92,7 @@ namespace scene{
 			mask(sceneObjs[i]->bbox) = 1.0;
 			cv::Mat objDepth = depthImage.mul(mask);
 			sceneObjs[i]->pclSegment = PointCloud::Ptr(new PointCloud);
+			sceneObjs[i]->pclSegmentDense = PointCloud::Ptr(new PointCloud);
 			utilities::convert3dUnOrganized(objDepth, camIntrinsic, sceneObjs[i]->pclSegment);
 
 			pcl::VoxelGrid<pcl::PointXYZ> sor;
@@ -110,19 +111,15 @@ namespace scene{
 		PointCloud::Ptr SampledSceneCloud(new PointCloud);
 		sceneCloud = PointCloud::Ptr(new PointCloud);
 		utilities::convert3dOrganized(depthImage, camIntrinsic, sceneCloud);
+
+		std::string input1 = scenePath + "/debug/scene.ply";
+		pcl::io::savePLYFile(input1, *sceneCloud);
 		
 		// Creating the filtering object: downsample the dataset using a leaf size of 0.5cm
 		pcl::VoxelGrid<pcl::PointXYZ> sor;
 		sor.setInputCloud (sceneCloud);
 		sor.setLeafSize (0.005f, 0.005f, 0.005f);
 		sor.filter (*SampledSceneCloud);
-
-		// boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-		// viewer = utilities::simpleVis(SampledSceneCloud);
-		// while (!viewer->wasStopped ()){
-		// 	viewer->spinOnce (100);
-		// 	boost::this_thread::sleep (boost::posix_time::microseconds (100000));
-		// }
 
 		// Plane Fitting
 		pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
@@ -136,21 +133,21 @@ namespace scene{
 		seg.setInputCloud (SampledSceneCloud);
 		seg.segment (*inliers, *coefficients);
 
-		//Classify table, non-table points
-		PointCloud::Ptr tableCloud(new PointCloud);
-		PointCloud::Ptr objectPoints(new PointCloud);
-		for(int i=0;i<sceneCloud->points.size();i++){
-			pcl::PointXYZ pt = sceneCloud->points[i];
-			double dist = pcl::pointToPlaneDistance(pt, coefficients->values[0], coefficients->values[1],
-														coefficients->values[2], coefficients->values[3]);
-			if(dist<0.005 && sceneCloud->points[i].z)
-				tableCloud->points.push_back(pt);
-			else if(sceneCloud->points[i].z)
-				objectPoints->points.push_back(pt);
-		}
+		int imgWidth = depthImage.cols;
+		int imgHeight = depthImage.rows;
 
-		depthImage = cv::Mat::zeros(depthImage.rows, depthImage.cols, CV_32FC1);
-		utilities::convert2d(depthImage, camIntrinsic, objectPoints);
+		for(int u=0; u<imgHeight; u++)
+			for(int v=0; v<imgWidth; v++){
+				float depth = depthImage.at<float>(u,v);
+				pcl::PointXYZ pt;
+				pt.x = (float)((v - camIntrinsic(0,2)) * depth / camIntrinsic(0,0));
+				pt.y = (float)((u - camIntrinsic(1,2)) * depth / camIntrinsic(1,1));
+				pt.z = depth;
+				double dist = pcl::pointToPlaneDistance(pt, coefficients->values[0], coefficients->values[1],
+														coefficients->values[2], coefficients->values[3]);
+				if(dist<0.005)
+					depthImage.at<float>(u,v) = 0;
+		}
 		utilities::writeDepthImage(depthImage, scenePath+"/debug/scene.png");
 	}
 
@@ -164,12 +161,12 @@ namespace scene{
 	/********************************* function: getHypothesis *********************************************
 	*******************************************************************************************************/
 
-	void Scene::getHypothesis(PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
+	void Scene::getHypothesis(std::string objName, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 		std::vector< std::pair <Eigen::Isometry3d, float> > &allPose){
 
 		const clock_t begin_time = clock();
-		std::string input1 = scenePath + "/debug/pclSegment.ply";
-		std::string input2 = scenePath + "/debug/pclModel.ply";
+		std::string input1 = scenePath + "/debug/pclSegment_" + objName + ".ply";
+		std::string input2 = scenePath + "/debug/pclModel_" + objName + ".ply";
 		pcl::io::savePLYFile(input1, *pclSegment);
 		pcl::io::savePLYFile(input2, *pclModel);
 
@@ -177,11 +174,27 @@ namespace scene{
 		float bestscore = 0;
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allPose);
 
-		std::cout << "bestScore: " << bestscore <<std::endl; 
-		// std::cout << "BestTransform: " << bestPose.matrix() << std::endl;
-		max4PCSPose.push_back(bestPose);
+		#ifdef DBG_SUPER4PCS
+		int count = 0;
+		for(int i=0;i<allPose.size();i++){
+			if(allPose[i].second > 0.8*bestscore){
+				Eigen::Matrix4f tform;
+				PointCloud::Ptr transformedCloud (new PointCloud);
+				utilities::convertToMatrix(allPose[i].first, tform);
+				pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
+				char buf[50];
+				sprintf(buf,"%d", count);
+				std::string input1 = scenePath + "/debug/hypo_" + objName + std::string(buf) + ".ply";
+				pcl::io::savePLYFile(input1, *transformedCloud);
+				count++;
+			}
+		}
+		#endif
 
+		std::cout << "bestScore: " << bestscore <<std::endl;
+		std::cout << "bestPose: " << bestPose.matrix() <<std::endl;  
 		std::cout << "Scene::getHypothesis: Super4PCS time: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
+		max4PCSPose.push_back(std::make_pair(bestPose, bestscore));
 	}
 
 	/********************************* function: getUnconditionedHypothesis ********************************
@@ -190,7 +203,7 @@ namespace scene{
 	void Scene::getUnconditionedHypothesis(){
 		for(int i=0;i<objOrder.size();i++){
 			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
-			getHypothesis(objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
+			getHypothesis(objOrder[i]->objName, objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
 			unconditionedHypothesis.push_back(allPose);
 			std::cout << "object hypothesis count: " << allPose.size() << std::endl;
 		}
@@ -199,14 +212,13 @@ namespace scene{
 	/********************************* function: getBestSuper4PCS ******************************************
 	*******************************************************************************************************/
 
-	std::vector<Eigen::Isometry3d> Scene::getBestSuper4PCS(){
+	void Scene::getBestSuper4PCS(){
 		state::State* max4PCSState = new state::State(numObjects);
 		max4PCSState->updateStateId(-1);
 		for(int i=0;i<objOrder.size();i++)
-			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i], 0.f), numObjects);
+			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), numObjects);
 		cv::Mat depth_image;
 		max4PCSState->render(camPose, scenePath, depth_image);
-		return max4PCSPose;
 	}
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/

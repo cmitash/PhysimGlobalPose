@@ -34,7 +34,7 @@ namespace search{
 	void Search::expandNode(state::State* expState){
 		expState->expand();
 		expState->performTrICP(currScene->scenePath, 0.9);
-		// expState->performICP(currScene->scenePath, 0.008);
+		// expState->performICP(currScene->scenePath, 0.01);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
 
 		unsigned int maxDepth = objOrder.size();
@@ -50,11 +50,13 @@ namespace search{
 		else{
 			unsigned int nextDepthLevel = expState->numObjects + 1;
 			for(int ii = 0; ii < unconditionedHypothesis[nextDepthLevel - 1].size(); ii++){
-				state::State* childState = new state::State(nextDepthLevel);
-				childState->copyParent(expState);
-				childState->updateStateId(ii);
-				childState->updateNewObject(objOrder[nextDepthLevel - 1], unconditionedHypothesis[nextDepthLevel - 1][ii], maxDepth);
-				pq.push(childState);
+				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second > 0.8*currScene->max4PCSPose[nextDepthLevel - 1].second){
+					state::State* childState = new state::State(nextDepthLevel);
+					childState->copyParent(expState);
+					childState->updateStateId(ii);
+					childState->updateNewObject(objOrder[nextDepthLevel - 1], unconditionedHypothesis[nextDepthLevel - 1][ii], maxDepth);
+					pq.push(childState);
+				}
 			}
 		}
 	}
@@ -68,7 +70,7 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 10)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 5)
 				break;
 			
 			state::State *expState = pq.top();

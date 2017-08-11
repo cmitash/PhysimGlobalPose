@@ -17,6 +17,7 @@ namespace apc_objects{
 		objName = name;
 		objIdx = objMap[name];
 		pclModel = PointCloud::Ptr(new PointCloud);
+		pclModelDense = PointCloud::Ptr(new PointCloud);
 		pcl::io::loadPCDFile(env_p + pathPclModels + name + ".pcd", *pclModel);
 		pcl::io::loadPolygonFile(env_p + pathObjModels + name + ".obj" , objModel);
 

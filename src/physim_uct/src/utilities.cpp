@@ -66,6 +66,7 @@ namespace utilities{
 				depthShort = (depthShort << 3 | depthShort >> 13);
 				depthImgRaw.at<unsigned short>(u, v) = depthShort;
 			}
+		std::cout<<"path: "<<path<<std::endl;
 		cv::imwrite(path, depthImgRaw);
 	}
 
@@ -186,14 +187,14 @@ namespace utilities{
 	*******************************************************************************************************/
 
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose){
-		transform = cam_pose*transform;
+		transform = cam_pose*transform.eval();
 	}
 
 	/********************************* function: convertToCamera *******************************************
 	*******************************************************************************************************/
 
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose){
-		tform = cam_pose.inverse().eval()*tform;
+		tform = cam_pose.inverse().eval()*tform.eval();
 	}
 	
 	/********************************* end of functions ****************************************************

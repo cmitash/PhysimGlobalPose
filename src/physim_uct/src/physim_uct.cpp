@@ -48,6 +48,15 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
       physim_uct::ObjectPose pose;
       geometry_msgs::Pose msg;
 
+      #ifdef DGB_RESULT
+      Eigen::Matrix4f tform;
+      PointCloud::Ptr transformedCloud (new PointCloud);
+      utilities::convertToMatrix(UCTSearch->bestState->objects[i].second, tform);
+      pcl::transformPointCloud(*UCTSearch->bestState->objects[i].first->pclModel, *transformedCloud, tform);
+      std::string input1 = scenePath + "debug/result_" + UCTSearch->bestState->objects[i].first->objName + ".ply";
+      pcl::io::savePLYFile(input1, *transformedCloud);
+      #endif
+
       Eigen::Vector3d trans = UCTSearch->bestState->objects[i].second.translation();
       Eigen::Quaterniond rot(UCTSearch->bestState->objects[i].second.rotation());
 
@@ -66,10 +75,21 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   else {
     currScene->getBestSuper4PCS();
     for(int i=0; i<currScene->numObjects; i++){
+
+      #ifdef DGB_RESULT
+      Eigen::Matrix4f tform;
+      PointCloud::Ptr transformedCloud (new PointCloud);
+      utilities::convertToMatrix(currScene->max4PCSPose[i].first, tform);
+      std::cout<< tform <<std::endl;
+      pcl::transformPointCloud(*currScene->objOrder[i]->pclModel, *transformedCloud, tform);
+      std::string input1 = scenePath + "debug/result_" + currScene->objOrder[i]->objName + ".ply";
+      pcl::io::savePLYFile(input1, *transformedCloud);
+      #endif
+
       physim_uct::ObjectPose pose;
       geometry_msgs::Pose msg;
-      Eigen::Vector3d trans = currScene->max4PCSPose[i].translation();
-      Eigen::Quaterniond rot(currScene->max4PCSPose[i].rotation()); 
+      Eigen::Vector3d trans = currScene->max4PCSPose[i].first.translation();
+      Eigen::Quaterniond rot(currScene->max4PCSPose[i].first.rotation()); 
 
       msg.position.x = trans[0];
       msg.position.y = trans[1];

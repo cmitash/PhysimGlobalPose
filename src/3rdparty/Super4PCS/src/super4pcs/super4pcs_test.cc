@@ -17,16 +17,16 @@ using namespace match_4pcs;
 //Parameters for the algorithm
 
 // Delta (see the paper).
-double delta = 0.005;
+double delta = 0.0035;
 
 // Estimated overlap (see the paper).
-double overlap = 0.7;
+double overlap = 0.5;
 
 // Maximum norm of RGB values between corresponded points. 1e9 means don't use.
 double max_color = -1;
 
 // Number of sampled points in both files. The 4PCS allows a very aggressive sampling.
-int n_points = 200;
+int n_points = 300;
 
 // Maximum angle (degrees) between corresponded normals.
 double norm_diff = -1;

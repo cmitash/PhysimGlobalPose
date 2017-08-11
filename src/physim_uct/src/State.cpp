@@ -49,7 +49,7 @@ namespace state{
   			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
   			addObjects(mesh_out);
 		}
-		renderDepth(cam_pose, depth_image, scenePath + "/debug/render" + stateId + ".png");
+		renderDepth(cam_pose, depth_image, scenePath + "debug/render" + stateId + ".png");
 	}
 
 	/********************************* function: updateNewObject *******************************************
@@ -112,18 +112,29 @@ namespace state{
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
 
 		pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-		icp.setInputCloud(transformedCloud);
+		icp.setInputSource(transformedCloud);
 		icp.setInputTarget(objects[numObjects-1].first->pclSegment);
 		icp.setMaxCorrespondenceDistance (max_corr);
 		icp.setMaximumIterations (50);
 		icp.setTransformationEpsilon (1e-8);
 		icp.align(icptransformedCloud);
 
+		#ifdef DBG_ICP
+		std::string input2 = scenePath + "debug/render" + stateId + "_segment.ply";
+		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
+
+		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
+		std::string input1 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		pcl::io::savePLYFile(input1, *transformedCloud);
+		#endif
+
 		tform = icp.getFinalTransformation()*tform;
 		
+		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "/debug/render" + stateId + "_Postmodel.ply";
+		std::string input3 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
+		#endif
 
 		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
 	}
@@ -145,21 +156,28 @@ namespace state{
 		tricp.setNewToOldEnergyRatio(1.f);
 
 		float numPoints = trimPercentage*objects[numObjects-1].first->pclSegment->points.size();
+		
+		#ifdef DBG_ICP
 		std::cout<< "size of cloud: "<<abs(numPoints)<<std::endl;
-
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform.inverse().eval());
-		std::string input1 = scenePath + "/debug/render" + stateId + "_Premodel.ply";
+		std::string input1 = scenePath + "debug/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input1, *transformedCloud);
+		#endif
 
 		tricp.align(*objects[numObjects-1].first->pclSegment, abs(numPoints), tform);
 
-		std::string input2 = scenePath + "/debug/render" + stateId + "_segment.ply";
+		#ifdef DBG_ICP
+		std::string input2 = scenePath + "debug/render" + stateId + "_segment.ply";
 		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
+		#endif
 
 		tform = tform.inverse().eval();
+
+		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "/debug/render" + stateId + "_Postmodel.ply";
+		std::string input3 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
+		#endif
 
 		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
 	}
@@ -187,37 +205,37 @@ namespace state{
 
 		pSim->addObject(objects[numObjects-1].first->objName, worldPose, 10.0f);
 
-		// Debug Starts
-		// std::ofstream cfg_in;
-		// std::string path_in = scenePath + "/debug/render" + stateId + "_in.txt";
-		// cfg_in.open (path_in.c_str(), std::ofstream::out | std::ofstream::app);
-		// Eigen::Isometry3d pose_in;
-		// for(int ii=0; ii<numObjects; ii++){
-		// 	pSim->getTransform(objects[ii].first->objName, pose_in);
-		// 	Eigen::Vector3d trans_in = pose_in.translation();
-		// 	Eigen::Quaterniond rot_in(pose_in.rotation()); 
-		// 	cfg_in << objects[ii].first->objName << " " << trans_in[0] << " " << trans_in[1] << " " << trans_in[2]
-		// 		<< " " << rot_in.x() << " " << rot_in.y() << " " << rot_in.z() << " " << rot_in.w() << std::endl;
-		// }
-		// cfg_in.close();
-		// Debug Ends
+		#ifdef DBG_PHYSICS
+		std::ofstream cfg_in;
+		std::string path_in = scenePath + "debug/render" + stateId + "_in.txt";
+		cfg_in.open (path_in.c_str(), std::ofstream::out | std::ofstream::app);
+		Eigen::Isometry3d pose_in;
+		for(int ii=0; ii<numObjects; ii++){
+			pSim->getTransform(objects[ii].first->objName, pose_in);
+			Eigen::Vector3d trans_in = pose_in.translation();
+			Eigen::Quaterniond rot_in(pose_in.rotation()); 
+			cfg_in << objects[ii].first->objName << " " << trans_in[0] << " " << trans_in[1] << " " << trans_in[2]
+				<< " " << rot_in.x() << " " << rot_in.y() << " " << rot_in.z() << " " << rot_in.w() << std::endl;
+		}
+		cfg_in.close();
+		#endif
 
-		pSim->simulate(50);
+		pSim->simulate(100);
 
-		// Debug Starts
-		// std::ofstream cfg_out;
-		// std::string path_out = scenePath + "/debug/render" + stateId + "_out.txt";
-		// cfg_out.open (path_out.c_str(), std::ofstream::out | std::ofstream::app);
-		// Eigen::Isometry3d pose_out;
-		// for(int ii=0; ii<numObjects; ii++){
-		// 	pSim->getTransform(objects[ii].first->objName, pose_out);
-		// 	Eigen::Vector3d trans_out = pose_out.translation();
-		// 	Eigen::Quaterniond rot_out(pose_out.rotation()); 
-		// 	cfg_out << objects[ii].first->objName << " " << trans_out[0] << " " << trans_out[1] << " " << trans_out[2]
-		// 		<< " " << rot_out.x() << " " << rot_out.y() << " " << rot_out.z() << " " << rot_out.w() << std::endl;
-		// }
-		// cfg_out.close();
-		// Debug Ends
+		#ifdef DBG_PHYSICS
+		std::ofstream cfg_out;
+		std::string path_out = scenePath + "debug/render" + stateId + "_out.txt";
+		cfg_out.open (path_out.c_str(), std::ofstream::out | std::ofstream::app);
+		Eigen::Isometry3d pose_out;
+		for(int ii=0; ii<numObjects; ii++){
+			pSim->getTransform(objects[ii].first->objName, pose_out);
+			Eigen::Vector3d trans_out = pose_out.translation();
+			Eigen::Quaterniond rot_out(pose_out.rotation()); 
+			cfg_out << objects[ii].first->objName << " " << trans_out[0] << " " << trans_out[1] << " " << trans_out[2]
+				<< " " << rot_out.x() << " " << rot_out.y() << " " << rot_out.z() << " " << rot_out.w() << std::endl;
+		}
+		cfg_out.close();
+		#endif
 
 		Eigen::Isometry3d finalPose;
 		Eigen::Matrix4f tform;
