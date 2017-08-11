@@ -15,6 +15,7 @@
 #include "../examples/OpenGLWindow/GLInstanceGraphicsShape.h"
 #include "../examples/Importers/ImportObjDemo/Wavefront2GLInstanceGraphicsShape.h"
 #include "../examples/Utils/b3ResourcePath.h"
+#include "../examples/CommonInterfaces/CommonParameterInterface.h"
 
 namespace physim{
 

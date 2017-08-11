@@ -7,7 +7,7 @@
 
 
 // mode of operation
-bool performSearch = 1;
+bool performSearch = 0;
 
 // Global definations
 std::string env_p;

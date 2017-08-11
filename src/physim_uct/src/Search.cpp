@@ -4,6 +4,11 @@ bool operator<(const state::State& lhs, const state::State& rhs) {
 	return lhs.hval < rhs.hval;
 }
 
+int numExpansions;
+int numRenders;
+float expansionTime;
+float renderTime;
+
 namespace search{
 	
 	/********************************* function: constructor ***********************************************
@@ -23,7 +28,7 @@ namespace search{
 
 		// initialize physics engine
 		pSim = new physim::PhySim();
-		pSim->addTable(0.53);
+		pSim->addTable(0.55);
 		for(int ii=0; ii<objOrder.size(); ii++)
 			pSim->initRigidBody(objOrder[ii]->objName);
 	}
@@ -33,15 +38,22 @@ namespace search{
 
 	void Search::expandNode(state::State* expState){
 		expState->expand();
+
+		const clock_t exp_begin_time = clock();
 		expState->performTrICP(currScene->scenePath, 0.9);
-		// expState->performICP(currScene->scenePath, 0.01);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
 		unsigned int maxDepth = objOrder.size();
 		if(expState->numObjects == maxDepth){
 			cv::Mat depth_image;
+
+			const clock_t render_begin_time = clock();
 			expState->render(currScene->camPose, currScene->scenePath, depth_image);
+			numRenders++;
 			expState->computeCost(depth_image, currScene->depthImage);
+			renderTime += (float( clock () - render_begin_time ) /  CLOCKS_PER_SEC);
+
 			if(expState->score < bestScore){
 				bestState = expState;
 				bestScore = expState->score;
@@ -67,16 +79,25 @@ namespace search{
 	void Search::heuristicSearch(){
 		const clock_t begin_time = clock();
 		
+		numExpansions = 0;
+		numRenders = 0;
+		expansionTime = 0;
+		renderTime = 0;
+
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 5)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 30)
 				break;
 			
 			state::State *expState = pq.top();
 			pq.pop();
 			expandNode(expState);
+			numExpansions++;
 		}
+		std::cout<<"total number of state expansions: " << numExpansions <<std::endl;
+		std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
+		std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
 	}
 
 	/********************************* end of functions ****************************************************

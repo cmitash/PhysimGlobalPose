@@ -220,7 +220,7 @@ namespace state{
 		cfg_in.close();
 		#endif
 
-		pSim->simulate(100);
+		pSim->simulate(60);
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_out;

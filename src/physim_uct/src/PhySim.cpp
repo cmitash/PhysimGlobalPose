@@ -59,6 +59,7 @@ namespace physim{
 
 		btRigidBody* body = new btRigidBody(mass,0,shape,localInertia);
 		body->setDamping(0.99f,0.99f);
+		body->setActivationState(DISABLE_DEACTIVATION);
 		rBodyMap[objName] = body;
 		cShapes[objName] = shape;
 	}
@@ -77,7 +78,7 @@ namespace physim{
 		startTransform.setOrigin(position);
 		startTransform.setRotation(quat);
 			
-		rBodyMap[objName]->proceedToTransform(startTransform);
+		rBodyMap[objName]->setWorldTransform(startTransform);
 
 		bool isDynamic = (mass != 0.f);
 		btVector3 localInertia(0,0,0);
@@ -92,6 +93,7 @@ namespace physim{
 	*******************************************************************************************************/
 
 	void PhySim::simulate(int num_steps){
+		dynamicsWorld->setGravity(btVector3(0,0,-10));
 		for (int ii = 0; ii < num_steps; ii++)
 			dynamicsWorld->stepSimulation(1.f/60.f);
 	}
@@ -116,6 +118,10 @@ namespace physim{
 
 	void PhySim::removeObject(std::string objName){
 		dynamicsWorld->removeRigidBody(rBodyMap[objName]);
+		rBodyMap[objName]->clearForces();
+		btVector3 zeroVector(0,0,0);
+		rBodyMap[objName]->setLinearVelocity(zeroVector);
+		rBodyMap[objName]->setAngularVelocity(zeroVector);
 	}
 
 	/********************************* function: destructor **********************************************

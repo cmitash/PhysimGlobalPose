@@ -112,7 +112,7 @@ namespace scene{
 		sceneCloud = PointCloud::Ptr(new PointCloud);
 		utilities::convert3dOrganized(depthImage, camIntrinsic, sceneCloud);
 
-		std::string input1 = scenePath + "/debug/scene.ply";
+		std::string input1 = scenePath + "debug/scene.ply";
 		pcl::io::savePLYFile(input1, *sceneCloud);
 		
 		// Creating the filtering object: downsample the dataset using a leaf size of 0.5cm
@@ -120,6 +120,8 @@ namespace scene{
 		sor.setInputCloud (sceneCloud);
 		sor.setLeafSize (0.005f, 0.005f, 0.005f);
 		sor.filter (*SampledSceneCloud);
+
+		// pcl::transformPointCloud(*SampledSceneCloud, *SampledSceneCloud, camPose);
 
 		// Plane Fitting
 		pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
@@ -133,6 +135,8 @@ namespace scene{
 		seg.setInputCloud (SampledSceneCloud);
 		seg.segment (*inliers, *coefficients);
 
+		std::cout << "table co-ordinates are: " << coefficients->values[0] << coefficients->values[1] <<
+														coefficients->values[2] << coefficients->values[3] <<std::endl;
 		int imgWidth = depthImage.cols;
 		int imgHeight = depthImage.rows;
 
@@ -148,7 +152,7 @@ namespace scene{
 				if(dist<0.005)
 					depthImage.at<float>(u,v) = 0;
 		}
-		utilities::writeDepthImage(depthImage, scenePath+"/debug/scene.png");
+		utilities::writeDepthImage(depthImage, scenePath+"debug/scene.png");
 	}
 
 	/********************************* function: getOrder **************************************************
@@ -165,8 +169,8 @@ namespace scene{
 		std::vector< std::pair <Eigen::Isometry3d, float> > &allPose){
 
 		const clock_t begin_time = clock();
-		std::string input1 = scenePath + "/debug/pclSegment_" + objName + ".ply";
-		std::string input2 = scenePath + "/debug/pclModel_" + objName + ".ply";
+		std::string input1 = scenePath + "debug/pclSegment_" + objName + ".ply";
+		std::string input2 = scenePath + "debug/pclModel_" + objName + ".ply";
 		pcl::io::savePLYFile(input1, *pclSegment);
 		pcl::io::savePLYFile(input2, *pclModel);
 
@@ -184,7 +188,7 @@ namespace scene{
 				pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
 				char buf[50];
 				sprintf(buf,"%d", count);
-				std::string input1 = scenePath + "/debug/hypo_" + objName + std::string(buf) + ".ply";
+				std::string input1 = scenePath + "debug/hypo_" + objName + std::string(buf) + ".ply";
 				pcl::io::savePLYFile(input1, *transformedCloud);
 				count++;
 			}
