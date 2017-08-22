@@ -56,7 +56,7 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloudRGB;
 // Global variables
 extern std::string env_p;
 
-// #define DBG_SUPER4PCS
+#define DBG_SUPER4PCS
 // #define DBG_ICP
 // #define DBG_PHYSICS
 #define DGB_RESULT

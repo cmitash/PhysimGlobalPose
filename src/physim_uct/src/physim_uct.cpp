@@ -5,7 +5,6 @@
 #include <physim_uct/EstimateObjectPose.h>
 #include <physim_uct/ObjectPose.h>
 
-
 // mode of operation
 bool performSearch = 0;
 

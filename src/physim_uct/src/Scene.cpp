@@ -121,8 +121,6 @@ namespace scene{
 		sor.setLeafSize (0.005f, 0.005f, 0.005f);
 		sor.filter (*SampledSceneCloud);
 
-		// pcl::transformPointCloud(*SampledSceneCloud, *SampledSceneCloud, camPose);
-
 		// Plane Fitting
 		pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
 		pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -179,20 +177,42 @@ namespace scene{
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allPose);
 
 		#ifdef DBG_SUPER4PCS
-		int count = 0;
+		// int count = 0;
+		// for(int i=0;i<allPose.size();i++){
+		// 	if(allPose[i].second > 0.9*bestscore){
+		// 		Eigen::Matrix4f tform;
+		// 		PointCloud::Ptr transformedCloud (new PointCloud);
+		// 		utilities::convertToMatrix(allPose[i].first, tform);
+		// 		pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
+		// 		char buf[50];
+		// 		sprintf(buf,"%d", count);
+		// 		std::string input1 = scenePath + "debug/hypo_" + objName + std::string(buf) + ".ply";
+		// 		pcl::io::savePLYFile(input1, *transformedCloud);
+		// 		count++;
+		// 	}
+		// }
+		ofstream poseFile, scoreFile, bestPoseFile, gtPoseFile;
+    	poseFile.open ((scenePath + "debug/pose_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+    	scoreFile.open ((scenePath + "debug/score_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 		for(int i=0;i<allPose.size();i++){
-			if(allPose[i].second > 0.8*bestscore){
-				Eigen::Matrix4f tform;
-				PointCloud::Ptr transformedCloud (new PointCloud);
-				utilities::convertToMatrix(allPose[i].first, tform);
-				pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
-				char buf[50];
-				sprintf(buf,"%d", count);
-				std::string input1 = scenePath + "debug/hypo_" + objName + std::string(buf) + ".ply";
-				pcl::io::savePLYFile(input1, *transformedCloud);
-				count++;
-			}
+			Eigen::Matrix4f pose;
+			utilities::convertToMatrix(allPose[i].first, pose);
+			utilities::convertToWorld(pose, camPose);
+			poseFile << pose(0,0) << " " << pose(0,1) << " " << pose(0,2) << " " << pose(0,3) 
+					 << " " << pose(1,0) << " " << pose(1,1) << " " << pose(1,2) << " " << pose(1,3)
+					 << " " << pose(2,0) << " " << pose(2,1) << " " << pose(2,2) << " " << pose(2,3) << std::endl;
+			scoreFile << allPose[i].second <<std::endl;
 		}
+
+		Eigen::Matrix4f best_pose;
+		utilities::convertToMatrix(bestPose, best_pose);
+		utilities::convertToWorld(best_pose, camPose);
+		bestPoseFile << best_pose(0,0) << " " << best_pose(0,1) << " " << best_pose(0,2) << " " << best_pose(0,3) 
+				 << " " << best_pose(1,0) << " " << best_pose(1,1) << " " << best_pose(1,2) << " " << best_pose(1,3)
+				 << " " << best_pose(2,0) << " " << best_pose(2,1) << " " << best_pose(2,2) << " " << best_pose(2,3) << std::endl;
+
+		poseFile.close();
+		scoreFile.close();
 		#endif
 
 		std::cout << "bestScore: " << bestscore <<std::endl;

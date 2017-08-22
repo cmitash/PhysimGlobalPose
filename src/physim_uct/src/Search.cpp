@@ -42,6 +42,9 @@ namespace search{
 		const clock_t exp_begin_time = clock();
 		expState->performTrICP(currScene->scenePath, 0.9);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+		expState->performTrICP(currScene->scenePath, 0.45);
+		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
 		unsigned int maxDepth = objOrder.size();
@@ -87,7 +90,7 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 30)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600)
 				break;
 			
 			state::State *expState = pq.top();
@@ -99,6 +102,46 @@ namespace search{
 		std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
 		std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
 	}
+
+	/********************************* function: UCTSearch *************************************************
+	*******************************************************************************************************/
+
+	// void Search::expand(){
+		
+	// }
+
+	// /********************************* function: treePolicy ************************************************
+	// *******************************************************************************************************/
+
+	// void Search::treePolicy(state::State *currState){
+	// 	while()
+	// }
+
+	// /********************************* function: UCTSearch *************************************************
+	// *******************************************************************************************************/
+
+	// void Search::UCTSearch(){
+	// 	const clock_t begin_time = clock();
+		
+	// 	numExpansions = 0;
+	// 	numRenders = 0;
+	// 	expansionTime = 0;
+	// 	renderTime = 0;
+
+	// 	while(1){
+
+	// 		if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600)
+	// 			break;
+
+	// 		state::State *selState = treePolicy(rootState);
+	// 		float reward = defaultPolicy(selState);
+	// 		backupReward(selState, reward);
+	// 	}
+
+	// 	std::cout<<"total number of state expansions: " << numExpansions <<std::endl;
+	// 	std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
+	// 	std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
+	// }
 
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
