@@ -49,10 +49,7 @@ class detection:
     blist = np.array(bboxlist)
     slist = np.array(scorelist)
 
-    directory = req.scene_path + '/debug'
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
+    directory = req.scene_path + 'debug'
     height,width,depth = cv_image.shape
 
     if len(bboxlist) > 0:

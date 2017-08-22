@@ -11,6 +11,7 @@ bool performSearch = 0;
 // Global definations
 std::string env_p;
 std::vector<apc_objects::APCObjects*> Objects;
+std::map<std::string, Eigen::Vector3f> symMap;
 
 // depth_sim package
 void initScene (int argc, char **argv);
@@ -21,6 +22,9 @@ void initScene (int argc, char **argv);
 bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
                   physim_uct::EstimateObjectPose::Response &res){
   std::string scenePath(req.SceneFiles);
+  system(("rm -r " + scenePath + "debug").c_str());
+  system(("mkdir " + scenePath + "debug").c_str());
+
   scene::Scene *currScene = new scene::Scene(scenePath);
   std::cout<<"number of objects: " << currScene->numObjects << std::endl
            <<"camera pose: " << std::endl << currScene->camPose << std::endl
@@ -79,7 +83,6 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
       Eigen::Matrix4f tform;
       PointCloud::Ptr transformedCloud (new PointCloud);
       utilities::convertToMatrix(currScene->max4PCSPose[i].first, tform);
-      std::cout<< tform <<std::endl;
       pcl::transformPointCloud(*currScene->objOrder[i]->pclModel, *transformedCloud, tform);
       std::string input1 = scenePath + "debug/result_" + currScene->objOrder[i]->objName + ".ply";
       pcl::io::savePLYFile(input1, *transformedCloud);
@@ -122,6 +125,22 @@ void loadObjects(std::vector<apc_objects::APCObjects*> &Objects){
   apc_objects_strs.push_back("dove_beauty_bar");
   apc_objects_strs.push_back("elmers_washable_no_run_school_glue");
   apc_objects_strs.push_back("rawlings_baseball");
+
+  symMap["crayola_24_ct"] << 180,180,180;
+  symMap["expo_dry_erase_board_eraser"] << 180,180,180;
+  symMap["folgers_classic_roast_coffee"] << 360,180,180;
+  symMap["scotch_duct_tape"] << 180,180,360;
+  symMap["dasani_water_bottle"] << 360,0,0;
+  symMap["jane_eyre_dvd"] << 180,180,180;
+  symMap["up_glucose_bottle"] << 360,0,0;
+  symMap["laugh_out_loud_joke_book"] << 180,180,180;
+  symMap["soft_white_lightbulb"] << 90,180,180;
+  symMap["kleenex_tissue_box"] << 90,90,90;
+  symMap["ticonderoga_12_pencils"] << 180,180,180;
+  symMap["dove_beauty_bar"] << 180,180,180;
+  symMap["dr_browns_bottle_brush"] << 180,0,0;
+  symMap["elmers_washable_no_run_school_glue"] << 180,0,0;
+  symMap["rawlings_baseball"] << 360,360,360;
 
   for(int i=0;i<apc_objects_strs.size();i++){
     apc_objects::APCObjects* tmpobj = new apc_objects::APCObjects(apc_objects_strs[i]);

@@ -7,6 +7,7 @@ namespace apc_objects{
 									 ("up_glucose_bottle", 7)("laugh_out_loud_joke_book", 8)("soft_white_lightbulb", 9)
 									 ("kleenex_tissue_box", 10)("ticonderoga_12_pencils", 11)("dove_beauty_bar", 12)
 									 ("dr_browns_bottle_brush", 13)("elmers_washable_no_run_school_glue", 14)("rawlings_baseball", 15);
+
 	std::string pathPclModels = "/models/pcl/";
 	std::string pathObjModels = "/models/obj/";
 
@@ -16,6 +17,7 @@ namespace apc_objects{
 	APCObjects::APCObjects(std::string name){
 		objName = name;
 		objIdx = objMap[name];
+		symInfo = symMap[name];
 		pclModel = PointCloud::Ptr(new PointCloud);
 		pclModelDense = PointCloud::Ptr(new PointCloud);
 		pcl::io::loadPCDFile(env_p + pathPclModels + name + ".pcd", *pclModel);

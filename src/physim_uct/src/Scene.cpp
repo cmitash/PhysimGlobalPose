@@ -113,6 +113,7 @@ namespace scene{
 		utilities::convert3dOrganized(depthImage, camIntrinsic, sceneCloud);
 
 		std::string input1 = scenePath + "debug/scene.ply";
+		std::cout << input1 <<std::endl;
 		pcl::io::savePLYFile(input1, *sceneCloud);
 		
 		// Creating the filtering object: downsample the dataset using a leaf size of 0.5cm
@@ -150,7 +151,7 @@ namespace scene{
 				if(dist<0.005)
 					depthImage.at<float>(u,v) = 0;
 		}
-		utilities::writeDepthImage(depthImage, scenePath+"debug/scene.png");
+		utilities::writeDepthImage(depthImage, scenePath + "debug/scene.png");
 	}
 
 	/********************************* function: getOrder **************************************************
@@ -163,12 +164,12 @@ namespace scene{
 	/********************************* function: getHypothesis *********************************************
 	*******************************************************************************************************/
 
-	void Scene::getHypothesis(std::string objName, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
+	void Scene::getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 		std::vector< std::pair <Eigen::Isometry3d, float> > &allPose){
 
 		const clock_t begin_time = clock();
-		std::string input1 = scenePath + "debug/pclSegment_" + objName + ".ply";
-		std::string input2 = scenePath + "debug/pclModel_" + objName + ".ply";
+		std::string input1 = scenePath + "debug/pclSegment_" + obj->objName + ".ply";
+		std::string input2 = scenePath + "debug/pclModel_" + obj->objName + ".ply";
 		pcl::io::savePLYFile(input1, *pclSegment);
 		pcl::io::savePLYFile(input2, *pclModel);
 
@@ -186,38 +187,104 @@ namespace scene{
 		// 		pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
 		// 		char buf[50];
 		// 		sprintf(buf,"%d", count);
-		// 		std::string input1 = scenePath + "debug/hypo_" + objName + std::string(buf) + ".ply";
+		// 		std::string input1 = scenePath + "debug/hypo_" + obj->objName + std::string(buf) + ".ply";
 		// 		pcl::io::savePLYFile(input1, *transformedCloud);
 		// 		count++;
 		// 	}
 		// }
-		ofstream poseFile, scoreFile, bestPoseFile, gtPoseFile;
-    	poseFile.open ((scenePath + "debug/pose_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-    	scoreFile.open ((scenePath + "debug/score_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-		for(int i=0;i<allPose.size();i++){
+
+		std::cout << "object hypothesis count: " << allPose.size() << std::endl;
+		std::cout << "bestScore: " << bestscore <<std::endl;
+		std::cout << "Scene::getHypothesis: Super4PCS time: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
+		std::cout << "###################################################" <<std::endl;
+
+		ifstream gtPoseFile;
+		Eigen::Matrix4f gtPose;
+		gtPose.setIdentity();
+		gtPoseFile.open((scenePath + "gt_pose_" + obj->objName + ".txt").c_str(), std::ifstream::in);
+		gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
+				 >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
+				 >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
+
+		float rotErr, transErr;
+		float minRotErr_rot = INT_MAX;
+		float minRotErr_trans = INT_MAX;
+
+		float minTransErr_rot = INT_MAX;
+		float minTransErr_trans = INT_MAX;
+
+		cv::Mat points(allPose.size(), 6, CV_32F);
+		for(int i=0; i<allPose.size(); i++){
 			Eigen::Matrix4f pose;
 			utilities::convertToMatrix(allPose[i].first, pose);
 			utilities::convertToWorld(pose, camPose);
-			poseFile << pose(0,0) << " " << pose(0,1) << " " << pose(0,2) << " " << pose(0,3) 
-					 << " " << pose(1,0) << " " << pose(1,1) << " " << pose(1,2) << " " << pose(1,3)
-					 << " " << pose(2,0) << " " << pose(2,1) << " " << pose(2,2) << " " << pose(2,3) << std::endl;
-			scoreFile << allPose[i].second <<std::endl;
+			utilities::addToCVMat(pose, points, i);
+			utilities::getPoseError(pose, gtPose, obj->symInfo, rotErr, transErr);
+			if(rotErr < minRotErr_rot){
+				minRotErr_rot = rotErr;
+				minRotErr_trans = transErr;
+			}
+			if(transErr < minTransErr_trans){
+				minTransErr_rot = rotErr;
+				minTransErr_trans = transErr;
+			}
 		}
 
-		Eigen::Matrix4f best_pose;
-		utilities::convertToMatrix(bestPose, best_pose);
-		utilities::convertToWorld(best_pose, camPose);
-		bestPoseFile << best_pose(0,0) << " " << best_pose(0,1) << " " << best_pose(0,2) << " " << best_pose(0,3) 
-				 << " " << best_pose(1,0) << " " << best_pose(1,1) << " " << best_pose(1,2) << " " << best_pose(1,3)
-				 << " " << best_pose(2,0) << " " << best_pose(2,1) << " " << best_pose(2,2) << " " << best_pose(2,3) << std::endl;
+		Eigen::Matrix4f bestPoseMat;
+		utilities::convertToMatrix(bestPose, bestPoseMat);
+		utilities::convertToWorld(bestPoseMat, camPose);
+		utilities::getPoseError(bestPoseMat, gtPose, obj->symInfo, rotErr, transErr);
 
-		poseFile.close();
-		scoreFile.close();
+		ofstream statsFile;
+		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		statsFile << "maxPCSRotErr: " << rotErr << std::endl;
+		statsFile << "maxPCSTransErr: " << transErr << std::endl;
+		statsFile << "allHypBestRotation_RotErr: " << minRotErr_rot << std::endl;
+		statsFile << "allHypBestRotation_TransErr: " << minRotErr_trans << std::endl;
+		statsFile << "allHypBestTranslation_RotErr: " << minTransErr_rot << std::endl;
+		statsFile << "allHypBestTranslation_TransErr: " << minTransErr_trans << std::endl;
+
+		int k = 50;
+		cv::Mat colMean, colMeanRepAll, colMeanRepK;
+		cv::reduce(points, colMean, 0, CV_REDUCE_AVG);
+		cv::repeat(colMean, allPose.size(), 1, colMeanRepAll);
+		cv::repeat(colMean, k, 1, colMeanRepK);
+		points = points/colMeanRepAll;
+
+		cv::Mat clusterIndices;
+		cv::Mat clusterCenters;
+		cv::kmeans(points, /* num clusters */ k, clusterIndices, cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 1000, 0.001)
+			, /*int attempts*/ 10, cv::KMEANS_PP_CENTERS, clusterCenters);
+
+		float minRotErrCluster_rot = INT_MAX;
+		float minRotErrCluster_trans = INT_MAX;
+
+		float minTransErrCluster_rot = INT_MAX;
+		float minTransErrCluster_trans = INT_MAX;
+
+		clusterCenters = clusterCenters.mul(colMeanRepK);
+		for(int ii = 0; ii < k; ii++){
+			Eigen::Matrix4f tmpPose;
+			utilities::convert6DToMatrix(tmpPose, clusterCenters, ii);
+			utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+			if(rotErr < minRotErrCluster_rot){
+				minRotErrCluster_rot = rotErr;
+				minRotErrCluster_trans = transErr;
+			}
+			if(transErr < minTransErrCluster_trans){
+				minTransErrCluster_rot = rotErr;
+				minTransErrCluster_trans = transErr;
+			}
+		}
+
+		statsFile << "ClusterHypBestRotation_RotErr: " << minRotErrCluster_rot << std::endl;
+		statsFile << "ClusterHypBestRotation_TransErr: " << minRotErrCluster_trans << std::endl;
+		statsFile << "ClusterHypBestTranslation_RotErr: " << minTransErrCluster_rot << std::endl;
+		statsFile << "ClusterHypBestTranslation_TransErr: " << minTransErrCluster_trans << std::endl;
+		statsFile.close();
+
 		#endif
 
-		std::cout << "bestScore: " << bestscore <<std::endl;
-		std::cout << "bestPose: " << bestPose.matrix() <<std::endl;  
-		std::cout << "Scene::getHypothesis: Super4PCS time: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
 		max4PCSPose.push_back(std::make_pair(bestPose, bestscore));
 	}
 
@@ -227,9 +294,8 @@ namespace scene{
 	void Scene::getUnconditionedHypothesis(){
 		for(int i=0;i<objOrder.size();i++){
 			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
-			getHypothesis(objOrder[i]->objName, objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
+			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
 			unconditionedHypothesis.push_back(allPose);
-			std::cout << "object hypothesis count: " << allPose.size() << std::endl;
 		}
 	}
 

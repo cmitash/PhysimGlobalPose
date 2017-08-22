@@ -13,7 +13,7 @@ namespace scene{
 			void get3DSegments();
 			void removeTable();
 			void getOrder();
-			void getHypothesis(std::string objName, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
+			void getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 				std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 			void getUnconditionedHypothesis();
 			void getBestSuper4PCS();

@@ -196,7 +196,87 @@ namespace utilities{
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose){
 		tform = cam_pose.inverse().eval()*tform.eval();
 	}
-	
+
+	/********************************* function: getPoseError **********************************************
+	*******************************************************************************************************/
+
+	void getPoseError(Eigen::Matrix4f &testPose, Eigen::Matrix4f &gtPose, Eigen::Vector3f &symInfo, 
+		float &meanrotErr, float &transErr){
+		Eigen::Matrix3f testRot, gtRot, rotdiff;
+		for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++){
+				testRot(ii,jj) = testPose(ii,jj);
+				gtRot(ii,jj) = gtPose(ii,jj);
+			}
+
+		testRot = testRot.inverse().eval();
+		rotdiff = testRot*gtRot;
+
+		Eigen::Vector3f rotErrZYX = rotdiff.eulerAngles(2, 1, 0);
+		rotErrZYX = rotErrZYX*180.0/M_PI;
+		Eigen::Vector3f rotErrXYZ;
+		rotErrXYZ << fabs(rotErrZYX(2)), fabs(rotErrZYX(1)), fabs(rotErrZYX(0)); 
+
+		for(int dim = 0; dim < 3; dim++){
+			if (symInfo(dim) == 90){
+				rotErrXYZ(dim) = abs(rotErrXYZ(dim) - 90);
+				rotErrXYZ(dim) = std::min(rotErrXYZ(dim), 90 - rotErrXYZ(dim));
+			}
+			else if(symInfo(dim) == 180){
+				rotErrXYZ(dim) = std::min(rotErrXYZ(dim), 180 - rotErrXYZ(dim));
+			}
+			else if(symInfo(dim) == 360){
+				rotErrXYZ(dim) = 0;
+			}
+		}
+
+		meanrotErr = (rotErrXYZ(0) + rotErrXYZ(1) + rotErrXYZ(2))/3;
+		transErr = sqrt(pow(gtPose(0,3) - testPose(0,3), 2) + 
+			pow(gtPose(1,3) - testPose(1,3), 2) + 
+				pow(gtPose(2,3) - testPose(2,3), 2));
+	}
+
+	/********************************* function: addToCVMat ************************************************
+	*******************************************************************************************************/
+
+	void addToCVMat(Eigen::Matrix4f &pose, cv::Mat &points, int index){
+		points.at<float>(index, 0) = pose(0,3);
+		points.at<float>(index, 1) = pose(1,3);
+		points.at<float>(index, 2) = pose(2,3);
+
+		Eigen::Matrix3f rotMat;
+		for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++){
+				rotMat(ii,jj) = pose(ii,jj);
+			}
+		Eigen::Vector3f rotErrZYX = rotMat.eulerAngles(2, 1, 0);
+		rotErrZYX = rotErrZYX*180.0/M_PI;
+
+		points.at<float>(index, 3) = rotErrZYX(2);
+		points.at<float>(index, 4) = rotErrZYX(1);
+		points.at<float>(index, 5) = rotErrZYX(0);
+	}
+
+	/********************************* function: convert6DToMatrix *****************************************
+	*******************************************************************************************************/
+
+	void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index){
+		pose.setIdentity();
+		pose(0,3) = points.at<float>(index, 0);
+		pose(1,3) = points.at<float>(index, 1);
+		pose(2,3) = points.at<float>(index, 2);
+
+		Eigen::Matrix3f rotMat;
+		rotMat = Eigen::AngleAxisf(points.at<float>(index, 5) * M_PI/180.0, Eigen::Vector3f::UnitZ()) 
+					* Eigen::AngleAxisf(points.at<float>(index, 4) * M_PI/180.0, Eigen::Vector3f::UnitY())
+      				* Eigen::AngleAxisf(points.at<float>(index, 3) * M_PI/180.0, Eigen::Vector3f::UnitX());
+
+      	for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++){
+				pose(ii,jj) = rotMat(ii,jj);
+			}
+	}
+
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
 

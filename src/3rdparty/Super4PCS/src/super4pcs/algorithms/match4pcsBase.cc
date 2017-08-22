@@ -531,9 +531,18 @@ bool Match4PCSBase::TryCongruentSet(
     congruent_points[3].first = b4;
 
     nbCongruent = 0;
+    
+    using std::chrono::system_clock;
+    std::chrono::time_point<system_clock> t0 = system_clock::now(), end;
 
     Eigen::Matrix<Scalar, 4, 4> transform;
     for (size_t i = 0; i < congruent_quads.size(); ++i) {
+
+      // Break the loop if timer expires
+      Scalar fraction_time = std::chrono::duration_cast<std::chrono::seconds>
+        (system_clock::now() - t0).count() / options_.max_time_seconds;
+      if(fraction_time > 0.99)break;
+
       const int a = congruent_quads[i].vertices[0];
       const int b = congruent_quads[i].vertices[1];
       const int c = congruent_quads[i].vertices[2];

@@ -21,6 +21,7 @@ namespace apc_objects{
 		PointCloud::Ptr pclSegmentDense;
 		pcl::PolygonMesh objModel;
 		cv::Rect bbox;
+		Eigen::Vector3f symInfo;
 	};
 }
 extern std::vector<apc_objects::APCObjects*> Objects;
