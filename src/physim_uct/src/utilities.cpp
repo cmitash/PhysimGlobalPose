@@ -197,6 +197,50 @@ namespace utilities{
 		tform = cam_pose.inverse().eval()*tform.eval();
 	}
 
+	/********************************* function: toEulerianAngle *******************************************
+	from wikipedia
+	*******************************************************************************************************/
+
+	static void toEulerianAngle(Eigen::Quaternionf& q, Eigen::Vector3f& eulAngles){
+		// roll (x-axis rotation)
+		double sinr = +2.0 * (q.w() * q.x() + q.y() * q.z());
+		double cosr = +1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y());
+		eulAngles[0] = atan2(sinr, cosr);
+
+		// pitch (y-axis rotation)
+		double sinp = +2.0 * (q.w() * q.y() - q.z() * q.x());
+		if (fabs(sinp) >= 1)
+			eulAngles[1] = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+		else
+			eulAngles[1] = asin(sinp);
+
+		// yaw (z-axis rotation)
+		double siny = +2.0 * (q.w() * q.z() + q.x() * q.y());
+		double cosy = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());  
+		eulAngles[2] = atan2(siny, cosy);
+	}
+	
+	/********************************* function: toQuaternion **********************************************
+	from wikipedia
+	*******************************************************************************************************/
+
+	static void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q){
+		double roll = eulAngles[0];
+		double pitch = eulAngles[1];
+		double yaw = eulAngles[2];
+		double cy = cos(yaw * 0.5);
+		double sy = sin(yaw * 0.5);
+		double cr = cos(roll * 0.5);
+		double sr = sin(roll * 0.5);
+		double cp = cos(pitch * 0.5);
+		double sp = sin(pitch * 0.5);
+
+		q.w() = cy * cr * cp + sy * sr * sp;
+		q.x() = cy * sr * cp - sy * cr * sp;
+		q.y() = cy * cr * sp + sy * sr * cp;
+		q.z() = sy * cr * cp - cy * sr * sp;
+	}
+
 	/********************************* function: getPoseError **********************************************
 	*******************************************************************************************************/
 
@@ -211,13 +255,13 @@ namespace utilities{
 
 		testRot = testRot.inverse().eval();
 		rotdiff = testRot*gtRot;
-
-		Eigen::Vector3f rotErrZYX = rotdiff.eulerAngles(2, 1, 0);
-		rotErrZYX = rotErrZYX*180.0/M_PI;
+		Eigen::Quaternionf rotdiffQ(rotdiff);
 		Eigen::Vector3f rotErrXYZ;
-		rotErrXYZ << fabs(rotErrZYX(2)), fabs(rotErrZYX(1)), fabs(rotErrZYX(0)); 
+		toEulerianAngle(rotdiffQ, rotErrXYZ);
+		rotErrXYZ = rotErrXYZ*180.0/M_PI;
 
 		for(int dim = 0; dim < 3; dim++){
+			rotErrXYZ(dim) = fabs(rotErrXYZ(dim));
 			if (symInfo(dim) == 90){
 				rotErrXYZ(dim) = abs(rotErrXYZ(dim) - 90);
 				rotErrXYZ(dim) = std::min(rotErrXYZ(dim), 90 - rotErrXYZ(dim));
@@ -249,12 +293,14 @@ namespace utilities{
 			for(int jj=0; jj < 3; jj++){
 				rotMat(ii,jj) = pose(ii,jj);
 			}
-		Eigen::Vector3f rotErrZYX = rotMat.eulerAngles(2, 1, 0);
-		rotErrZYX = rotErrZYX*180.0/M_PI;
+		Eigen::Quaternionf rotMatQ(rotMat);
+		Eigen::Vector3f rotErrXYZ;
+		toEulerianAngle(rotMatQ, rotErrXYZ);
+		rotErrXYZ = rotErrXYZ*180.0/M_PI;
 
-		points.at<float>(index, 3) = rotErrZYX(2);
-		points.at<float>(index, 4) = rotErrZYX(1);
-		points.at<float>(index, 5) = rotErrZYX(0);
+		points.at<float>(index, 3) = rotErrXYZ(0);
+		points.at<float>(index, 4) = rotErrXYZ(1);
+		points.at<float>(index, 5) = rotErrXYZ(2);
 	}
 
 	/********************************* function: convert6DToMatrix *****************************************
@@ -267,10 +313,14 @@ namespace utilities{
 		pose(2,3) = points.at<float>(index, 2);
 
 		Eigen::Matrix3f rotMat;
-		rotMat = Eigen::AngleAxisf(points.at<float>(index, 5) * M_PI/180.0, Eigen::Vector3f::UnitZ()) 
-					* Eigen::AngleAxisf(points.at<float>(index, 4) * M_PI/180.0, Eigen::Vector3f::UnitY())
-      				* Eigen::AngleAxisf(points.at<float>(index, 3) * M_PI/180.0, Eigen::Vector3f::UnitX());
-
+		Eigen::Quaternionf q;
+		Eigen::Vector3f rotXYZ;
+		rotXYZ << points.at<float>(index, 3) * M_PI/180.0, 
+					points.at<float>(index, 4) * M_PI/180.0,
+					points.at<float>(index, 5) * M_PI/180.0;
+		toQuaternion(rotXYZ, q);
+		rotMat = q.toRotationMatrix();
+		
       	for(int ii = 0;ii < 3; ii++)
 			for(int jj=0; jj < 3; jj++){
 				pose(ii,jj) = rotMat(ii,jj);

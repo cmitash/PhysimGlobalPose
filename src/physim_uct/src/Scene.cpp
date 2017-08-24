@@ -15,6 +15,8 @@ namespace scene{
 	*******************************************************************************************************/
 
 	Scene::Scene(std::string scenePath){
+		srand (time(NULL));
+
 		// Reading objects file and add the scene objects
 		std::ifstream filein((scenePath + "objects.txt").c_str());
 		std::string line;
@@ -161,12 +163,31 @@ namespace scene{
 		objOrder = sceneObjs;
 	}
 
+	/********************************* function: readGroundTruth *******************************************
+	*******************************************************************************************************/
+	void Scene::readGroundTruth(){
+		for(int i=0;i<objOrder.size();i++){
+			ifstream gtPoseFile;
+			Eigen::Matrix4f gtPose;
+			gtPose.setIdentity();
+			gtPoseFile.open((scenePath + "gt_pose_" + objOrder[i]->objName + ".txt").c_str(), std::ifstream::in);
+			gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
+					 >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
+					 >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
+			gtPoseFile.close();
+			groundTruth.push_back(std::make_pair(objOrder[i], gtPose));
+		}
+	}
+	
 	/********************************* function: getHypothesis *********************************************
 	*******************************************************************************************************/
-
+#ifdef DBG_SUPER4PCS
+	void Scene::getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
+		std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, Eigen::Matrix4f gtPose){
+#else
 	void Scene::getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 		std::vector< std::pair <Eigen::Isometry3d, float> > &allPose){
-
+#endif
 		const clock_t begin_time = clock();
 		std::string input1 = scenePath + "debug/pclSegment_" + obj->objName + ".ply";
 		std::string input2 = scenePath + "debug/pclModel_" + obj->objName + ".ply";
@@ -176,36 +197,15 @@ namespace scene{
 		Eigen::Isometry3d bestPose;
 		float bestscore = 0;
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allPose);
-
-		#ifdef DBG_SUPER4PCS
-		// int count = 0;
-		// for(int i=0;i<allPose.size();i++){
-		// 	if(allPose[i].second > 0.9*bestscore){
-		// 		Eigen::Matrix4f tform;
-		// 		PointCloud::Ptr transformedCloud (new PointCloud);
-		// 		utilities::convertToMatrix(allPose[i].first, tform);
-		// 		pcl::transformPointCloud(*pclModel, *transformedCloud, tform);
-		// 		char buf[50];
-		// 		sprintf(buf,"%d", count);
-		// 		std::string input1 = scenePath + "debug/hypo_" + obj->objName + std::string(buf) + ".ply";
-		// 		pcl::io::savePLYFile(input1, *transformedCloud);
-		// 		count++;
-		// 	}
-		// }
-
+		max4PCSPose.push_back(std::make_pair(bestPose, bestscore));
+		
 		std::cout << "object hypothesis count: " << allPose.size() << std::endl;
 		std::cout << "bestScore: " << bestscore <<std::endl;
 		std::cout << "Scene::getHypothesis: Super4PCS time: " << float( clock () - begin_time ) /  CLOCKS_PER_SEC << std::endl;
 		std::cout << "###################################################" <<std::endl;
 
-		ifstream gtPoseFile;
-		Eigen::Matrix4f gtPose;
-		gtPose.setIdentity();
-		gtPoseFile.open((scenePath + "gt_pose_" + obj->objName + ".txt").c_str(), std::ifstream::in);
-		gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
-				 >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
-				 >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
-
+	#ifdef DBG_SUPER4PCS
+		// get the closest to ground truth from set of all hypothesis
 		float rotErr, transErr;
 		float minRotErr_rot = INT_MAX;
 		float minRotErr_trans = INT_MAX;
@@ -214,15 +214,17 @@ namespace scene{
 		float minTransErr_trans = INT_MAX;
 
 		cv::Mat points(allPose.size(), 6, CV_32F);
-		for(int i=0; i<allPose.size(); i++){
+		int bestGTPoseIdx = -1;
+		for(int ii = 0; ii < allPose.size(); ii++){
 			Eigen::Matrix4f pose;
-			utilities::convertToMatrix(allPose[i].first, pose);
+			utilities::convertToMatrix(allPose[ii].first, pose);
 			utilities::convertToWorld(pose, camPose);
-			utilities::addToCVMat(pose, points, i);
+			utilities::addToCVMat(pose, points, ii);
 			utilities::getPoseError(pose, gtPose, obj->symInfo, rotErr, transErr);
 			if(rotErr < minRotErr_rot){
 				minRotErr_rot = rotErr;
 				minRotErr_trans = transErr;
+				bestGTPoseIdx = ii;
 			}
 			if(transErr < minTransErr_trans){
 				minTransErr_rot = rotErr;
@@ -230,20 +232,24 @@ namespace scene{
 			}
 		}
 
-		Eigen::Matrix4f bestPoseMat;
-		utilities::convertToMatrix(bestPose, bestPoseMat);
-		utilities::convertToWorld(bestPoseMat, camPose);
-		utilities::getPoseError(bestPoseMat, gtPose, obj->symInfo, rotErr, transErr);
+		// trial test:: get 9 random and 1 best hypothesis to search over
+		std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
+		subsetPose.push_back(allPose[bestGTPoseIdx]);
+		// for (int i=0; i<9; ++i) {
+		// 	int number = rand() % allPose.size();
+		// 	subsetPose.push_back(allPose[number]);
+		// }
+		unconditionedHypothesis.push_back(subsetPose);
 
 		ofstream statsFile;
 		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-		statsFile << "maxPCSRotErr: " << rotErr << std::endl;
-		statsFile << "maxPCSTransErr: " << transErr << std::endl;
 		statsFile << "allHypBestRotation_RotErr: " << minRotErr_rot << std::endl;
 		statsFile << "allHypBestRotation_TransErr: " << minRotErr_trans << std::endl;
 		statsFile << "allHypBestTranslation_RotErr: " << minTransErr_rot << std::endl;
 		statsFile << "allHypBestTranslation_TransErr: " << minTransErr_trans << std::endl;
+		statsFile.close();
 
+		// k-means clustering of poses
 		int k = 50;
 		cv::Mat colMean, colMeanRepAll, colMeanRepK;
 		cv::reduce(points, colMean, 0, CV_REDUCE_AVG);
@@ -262,6 +268,7 @@ namespace scene{
 		float minTransErrCluster_rot = INT_MAX;
 		float minTransErrCluster_trans = INT_MAX;
 
+		int bestClusterIdx = -1;
 		clusterCenters = clusterCenters.mul(colMeanRepK);
 		for(int ii = 0; ii < k; ii++){
 			Eigen::Matrix4f tmpPose;
@@ -270,6 +277,7 @@ namespace scene{
 			if(rotErr < minRotErrCluster_rot){
 				minRotErrCluster_rot = rotErr;
 				minRotErrCluster_trans = transErr;
+				bestClusterIdx = ii;
 			}
 			if(transErr < minTransErrCluster_trans){
 				minTransErrCluster_rot = rotErr;
@@ -277,40 +285,131 @@ namespace scene{
 			}
 		}
 
+		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 		statsFile << "ClusterHypBestRotation_RotErr: " << minRotErrCluster_rot << std::endl;
 		statsFile << "ClusterHypBestRotation_TransErr: " << minRotErrCluster_trans << std::endl;
 		statsFile << "ClusterHypBestTranslation_RotErr: " << minTransErrCluster_rot << std::endl;
 		statsFile << "ClusterHypBestTranslation_TransErr: " << minTransErrCluster_trans << std::endl;
 		statsFile.close();
 
-		#endif
+		// within cluster search
+		// float minRotErrWithinCluster_rot = INT_MAX;
+		// float minRotErrWithinCluster_trans = INT_MAX;
 
-		max4PCSPose.push_back(std::make_pair(bestPose, bestscore));
+		// float minTransErrWithinCluster_rot = INT_MAX;
+		// float minTransErrWithinCluster_trans = INT_MAX;
+
+		// points = points.mul(colMeanRepAll);
+		// for(int ii = 0; ii < points.rows; ii++){
+		// 	if(clusterIndices.at<int>(ii) == bestClusterIdx){
+		// 		Eigen::Matrix4f tmpPose;
+		// 		utilities::convert6DToMatrix(tmpPose, points, ii);
+		// 		utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+		// 		if(rotErr < minRotErrWithinCluster_rot){
+		// 			minRotErrWithinCluster_rot = rotErr;
+		// 			minRotErrWithinCluster_trans = transErr;
+		// 		}
+		// 		if(transErr < minTransErrWithinCluster_trans){
+		// 			minTransErrWithinCluster_rot = rotErr;
+		// 			minTransErrWithinCluster_trans = transErr;
+		// 		}
+		// 	}
+		// }
+
+		// statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		// statsFile << "minRotErrWithinCluster_rot: " << minRotErrWithinCluster_rot << std::endl;
+		// statsFile << "minRotErrWithinCluster_trans: " << minRotErrWithinCluster_trans << std::endl;
+		// statsFile << "minTransErrWithinCluster_rot: " << minTransErrWithinCluster_rot << std::endl;
+		// statsFile << "minTransErrWithinCluster_trans: " << minTransErrWithinCluster_trans << std::endl;
+		// statsFile.close();
+		
+	#endif
 	}
 
 	/********************************* function: getUnconditionedHypothesis ********************************
 	*******************************************************************************************************/
 
 	void Scene::getUnconditionedHypothesis(){
+	#ifdef DBG_SUPER4PCS
+		readGroundTruth();
+		for(int i=0;i<objOrder.size();i++){
+			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
+			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose, groundTruth[i].second);
+		}
+
+		// render closest to ground truth pose
+		state::State* bestState = new state::State(numObjects);
+		bestState->updateStateId(-2);
+		for(int i=0;i<objOrder.size();i++)
+			bestState->updateNewObject(objOrder[i], std::make_pair(unconditionedHypothesis[i][0].first, 0.f), numObjects);
+		
+		cv::Mat depth_image_minGT;
+		bestState->render(camPose, scenePath, depth_image_minGT);
+		bestState->computeCost(depth_image_minGT, depthImage);
+		
+		ofstream scoreFile;
+		scoreFile.open ((scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
+		scoreFile << bestState->stateId << " " << bestState->score << std::endl;
+		scoreFile.close();
+
+	#else
 		for(int i=0;i<objOrder.size();i++){
 			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
 			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
 			unconditionedHypothesis.push_back(allPose);
 		}
-	}
+	#endif
 
-	/********************************* function: getBestSuper4PCS ******************************************
-	*******************************************************************************************************/
-
-	void Scene::getBestSuper4PCS(){
-		state::State* max4PCSState = new state::State(numObjects);
+		// evaluate the best LCP hypothesis returned by Super4PCS
+		state::State* max4PCSState = new state::State(0);
 		max4PCSState->updateStateId(-1);
-		for(int i=0;i<objOrder.size();i++)
-			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), numObjects);
-		cv::Mat depth_image;
-		max4PCSState->render(camPose, scenePath, depth_image);
+		
+		physim::PhySim *tmpSim = new physim::PhySim();
+		tmpSim->addTable(0.55);
+		for(int ii=0; ii<objOrder.size(); ii++)
+			tmpSim->initRigidBody(objOrder[ii]->objName);
+
+		for(int i=0;i<objOrder.size();i++){
+			max4PCSState->numObjects = i+1;
+			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), max4PCSState->numObjects);
+			Eigen::Matrix4f bestPoseMat;
+			float rotErr, transErr;
+			utilities::convertToMatrix(max4PCSPose[i].first, bestPoseMat);
+			utilities::convertToWorld(bestPoseMat, camPose);
+			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
+
+			ofstream statsFile;
+			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			statsFile << "BestLCP_RotErr: " << rotErr << std::endl;
+			statsFile << "BestLCP_TransErr: " << transErr << std::endl;
+			statsFile.close();
+
+			// perform ICP and evaluate error
+			max4PCSState->performTrICP(scenePath, 0.9);
+			utilities::convertToMatrix(max4PCSState->objects[max4PCSState->numObjects-1].second, bestPoseMat);
+			utilities::convertToWorld(bestPoseMat, camPose);
+			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
+			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			statsFile << "BestLCP_AfterICP_RotErr: " << rotErr << std::endl;
+			statsFile << "BestLCP_AfterICP_TransErr: " << transErr << std::endl;
+			statsFile.close();
+
+			// perform simulation and evaluate error
+			max4PCSState->correctPhysics(tmpSim, camPose, scenePath);
+			utilities::convertToMatrix(max4PCSState->objects[max4PCSState->numObjects-1].second, bestPoseMat);
+			utilities::convertToWorld(bestPoseMat, camPose);
+			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
+			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			statsFile << "BestLCP_AfterICPSimulation_RotErr: " << rotErr << std::endl;
+			statsFile << "BestLCP_AfterICPSimulation_TransErr: " << transErr << std::endl;
+			statsFile.close();
+
+		}
+		cv::Mat depth_image_minLCP;
+		max4PCSState->render(camPose, scenePath, depth_image_minLCP);
+		max4PCSState->computeCost(depth_image_minLCP, depthImage);
 	}
+
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
-
 } // namespace scene

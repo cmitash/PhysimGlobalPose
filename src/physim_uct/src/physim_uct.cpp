@@ -22,7 +22,7 @@ void initScene (int argc, char **argv);
 bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
                   physim_uct::EstimateObjectPose::Response &res){
   std::string scenePath(req.SceneFiles);
-  system(("rm -r " + scenePath + "debug").c_str());
+  system(("rm -rf " + scenePath + "debug").c_str());
   system(("mkdir " + scenePath + "debug").c_str());
 
   scene::Scene *currScene = new scene::Scene(scenePath);
@@ -45,6 +45,34 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
       std::cout<<"Not enough time to search !!!"<<std::endl;
     else{
       std::cout<<"Best State id is: " << UCTSearch->bestState->stateId <<std::endl;
+
+      #ifdef DBG_SUPER4PCS
+      ofstream scoreFile;
+      scoreFile.open ((currScene->scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
+      scoreFile << UCTSearch->bestState->stateId << " " << UCTSearch->bestState->score << std::endl;
+      scoreFile.close();
+
+      for(int i = 0;i < UCTSearch->bestState->objects.size();i++){
+        Eigen::Matrix4f tform;
+        utilities::convertToMatrix(UCTSearch->bestState->objects[i].second, tform);
+        utilities::convertToWorld(tform, currScene->camPose);
+        ifstream gtPoseFile;
+        Eigen::Matrix4f gtPose;
+        gtPose.setIdentity();
+        gtPoseFile.open((currScene->scenePath + "gt_pose_" + UCTSearch->bestState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
+        gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
+             >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
+             >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
+        gtPoseFile.close();
+        float rotErr, transErr;
+        utilities::getPoseError(tform, gtPose, UCTSearch->bestState->objects[i].first->symInfo, rotErr, transErr);
+        ofstream statsFile;
+        statsFile.open ((currScene->scenePath + "debug/stats_" + UCTSearch->bestState->objects[i].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+        statsFile << "afterSearchRotErr: " << rotErr << std::endl;
+        statsFile << "afterSearchTransErr: " << transErr << std::endl;
+        statsFile.close();
+      }
+      #endif
     }
 
     for(int i=0; i<UCTSearch->bestState->numObjects; i++){
@@ -76,7 +104,6 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     }
   } 
   else {
-    currScene->getBestSuper4PCS();
     for(int i=0; i<currScene->numObjects; i++){
 
       #ifdef DGB_RESULT

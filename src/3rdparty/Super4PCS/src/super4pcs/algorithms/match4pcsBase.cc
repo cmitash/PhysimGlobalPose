@@ -953,7 +953,7 @@ bool Match4PCSBase::Perform_N_steps(int n,
   }
 
   current_trial_ += n;
-  if (best_LCP_ > last_best_LCP) {
+  // if (best_LCP_ > last_best_LCP) {
   *Q = Q_copy_;
 
       // The transformation has been computed between the two point clouds centered
@@ -983,7 +983,7 @@ bool Match4PCSBase::Perform_N_steps(int n,
 //      (*Q)[i].y() = transformed.at<double>(1, 0);
 //      (*Q)[i].z() = transformed.at<double>(2, 0);
     }
-  }
+  // }
 #ifdef TEST_GLOBAL_TIMINGS
     totalTime += Scalar(t.elapsed().count()) / Scalar(CLOCKS_PER_SEC);
 #endif

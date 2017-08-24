@@ -13,10 +13,13 @@ namespace scene{
 			void get3DSegments();
 			void removeTable();
 			void getOrder();
+
+			#ifndef DBG_SUPER4PCS
 			void getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
 				std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+			#endif
+
 			void getUnconditionedHypothesis();
-			void getBestSuper4PCS();
 			
 			int numObjects;
 			std::string scenePath;
@@ -28,6 +31,13 @@ namespace scene{
 			std::vector< std::pair<Eigen::Isometry3d, float> > max4PCSPose;
 			Eigen::Matrix4f camPose;
 			Eigen::Matrix3f camIntrinsic;
+
+			#ifdef DBG_SUPER4PCS
+			std::vector< std::pair <apc_objects::APCObjects*, Eigen::Matrix4f> > groundTruth;
+			void readGroundTruth();
+			void getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel, 
+				std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, Eigen::Matrix4f gtPose);
+			#endif
 	};
 }//namespace
 #endif

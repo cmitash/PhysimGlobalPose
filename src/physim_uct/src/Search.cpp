@@ -8,6 +8,7 @@ int numExpansions;
 int numRenders;
 float expansionTime;
 float renderTime;
+float thresholdLCP = 0;
 
 namespace search{
 	
@@ -40,10 +41,13 @@ namespace search{
 		expState->expand();
 
 		const clock_t exp_begin_time = clock();
+
+		#ifndef DBG_SUPER4PCS
 		expState->performTrICP(currScene->scenePath, 0.9);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
-		expState->performTrICP(currScene->scenePath, 0.45);
-		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+		// expState->performTrICP(currScene->scenePath, 0.45);
+		// expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+		#endif
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -55,6 +59,14 @@ namespace search{
 			expState->render(currScene->camPose, currScene->scenePath, depth_image);
 			numRenders++;
 			expState->computeCost(depth_image, currScene->depthImage);
+
+			#ifdef DBG_SUPER4PCS
+			ofstream scoreFile;
+			scoreFile.open ((currScene->scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
+			scoreFile << expState->stateId << " " << expState->score << std::endl;
+			scoreFile.close();
+			#endif
+
 			renderTime += (float( clock () - render_begin_time ) /  CLOCKS_PER_SEC);
 
 			if(expState->score < bestScore){
@@ -65,7 +77,7 @@ namespace search{
 		else{
 			unsigned int nextDepthLevel = expState->numObjects + 1;
 			for(int ii = 0; ii < unconditionedHypothesis[nextDepthLevel - 1].size(); ii++){
-				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second > 0.8*currScene->max4PCSPose[nextDepthLevel - 1].second){
+				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second > thresholdLCP*currScene->max4PCSPose[nextDepthLevel - 1].second){
 					state::State* childState = new state::State(nextDepthLevel);
 					childState->copyParent(expState);
 					childState->updateStateId(ii);
