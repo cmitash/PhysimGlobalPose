@@ -6,7 +6,7 @@
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-bool performSearch = 0;
+bool performSearch = 1;
 
 // Global definations
 std::string env_p;
@@ -43,19 +43,15 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
 
     if(!UCTSearch->bestState->numObjects)
       std::cout<<"Not enough time to search !!!"<<std::endl;
-    else{
+    else {
       std::cout<<"Best State id is: " << UCTSearch->bestState->stateId <<std::endl;
 
-      #ifdef DBG_SUPER4PCS
-      ofstream scoreFile;
-      scoreFile.open ((currScene->scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-      scoreFile << UCTSearch->bestState->stateId << " " << UCTSearch->bestState->score << std::endl;
-      scoreFile.close();
-
+    #ifdef DBG_SUPER4PCS
       for(int i = 0;i < UCTSearch->bestState->objects.size();i++){
         Eigen::Matrix4f tform;
         utilities::convertToMatrix(UCTSearch->bestState->objects[i].second, tform);
         utilities::convertToWorld(tform, currScene->camPose);
+        
         ifstream gtPoseFile;
         Eigen::Matrix4f gtPose;
         gtPose.setIdentity();
@@ -64,15 +60,17 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
              >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
              >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
         gtPoseFile.close();
+        
         float rotErr, transErr;
         utilities::getPoseError(tform, gtPose, UCTSearch->bestState->objects[i].first->symInfo, rotErr, transErr);
+        
         ofstream statsFile;
         statsFile.open ((currScene->scenePath + "debug/stats_" + UCTSearch->bestState->objects[i].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
         statsFile << "afterSearchRotErr: " << rotErr << std::endl;
         statsFile << "afterSearchTransErr: " << transErr << std::endl;
         statsFile.close();
       }
-      #endif
+    #endif
     }
 
     for(int i=0; i<UCTSearch->bestState->numObjects; i++){

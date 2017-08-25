@@ -42,12 +42,8 @@ namespace search{
 
 		const clock_t exp_begin_time = clock();
 
-		#ifndef DBG_SUPER4PCS
 		expState->performTrICP(currScene->scenePath, 0.9);
 		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
-		// expState->performTrICP(currScene->scenePath, 0.45);
-		// expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
-		#endif
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -60,12 +56,34 @@ namespace search{
 			numRenders++;
 			expState->computeCost(depth_image, currScene->depthImage);
 
-			#ifdef DBG_SUPER4PCS
+		#ifdef DBG_SUPER4PCS
+			float avgRotErr, avgTransErr;
+			for(int i = 0;i < expState->objects.size();i++){
+				Eigen::Matrix4f tform;
+				utilities::convertToMatrix(expState->objects[i].second, tform);
+				utilities::convertToWorld(tform, currScene->camPose);
+
+				ifstream gtPoseFile;
+				Eigen::Matrix4f gtPose;
+				gtPose.setIdentity();
+				gtPoseFile.open((currScene->scenePath + "gt_pose_" + expState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
+				gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
+					>> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
+					>> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
+				gtPoseFile.close();
+
+				float rotErr, transErr;
+				utilities::getPoseError(tform, gtPose, expState->objects[i].first->symInfo, rotErr, transErr);
+				avgRotErr += rotErr;
+				avgTransErr += transErr;
+			}
+			avgRotErr /= expState->objects.size();
+			avgTransErr /= expState->objects.size();
 			ofstream scoreFile;
 			scoreFile.open ((currScene->scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-			scoreFile << expState->stateId << " " << expState->score << std::endl;
+			scoreFile << avgRotErr << " " << avgTransErr << " " << expState->score << std::endl;
 			scoreFile.close();
-			#endif
+		#endif
 
 			renderTime += (float( clock () - render_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -77,7 +95,7 @@ namespace search{
 		else{
 			unsigned int nextDepthLevel = expState->numObjects + 1;
 			for(int ii = 0; ii < unconditionedHypothesis[nextDepthLevel - 1].size(); ii++){
-				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second > thresholdLCP*currScene->max4PCSPose[nextDepthLevel - 1].second){
+				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second >= thresholdLCP*currScene->max4PCSPose[nextDepthLevel - 1].second){
 					state::State* childState = new state::State(nextDepthLevel);
 					childState->copyParent(expState);
 					childState->updateStateId(ii);
@@ -102,7 +120,7 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600000)
 				break;
 			
 			state::State *expState = pq.top();

@@ -232,15 +232,14 @@ namespace scene{
 			}
 		}
 
-		// trial test:: get 9 random and 1 best hypothesis to search over
 		std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
-		subsetPose.push_back(allPose[bestGTPoseIdx]);
+		// trial test:: get 9 random and 1 best hypothesis to search over
+		// subsetPose.push_back(allPose[bestGTPoseIdx]);
 		// for (int i=0; i<9; ++i) {
 		// 	int number = rand() % allPose.size();
 		// 	subsetPose.push_back(allPose[number]);
 		// }
-		unconditionedHypothesis.push_back(subsetPose);
-
+		
 		ofstream statsFile;
 		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 		statsFile << "allHypBestRotation_RotErr: " << minRotErr_rot << std::endl;
@@ -272,8 +271,14 @@ namespace scene{
 		clusterCenters = clusterCenters.mul(colMeanRepK);
 		for(int ii = 0; ii < k; ii++){
 			Eigen::Matrix4f tmpPose;
+			Eigen::Isometry3d hypPose;
 			utilities::convert6DToMatrix(tmpPose, clusterCenters, ii);
 			utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+
+			utilities::convertToCamera(tmpPose, camPose);
+			utilities::convertToIsometry3d(tmpPose, hypPose);
+			subsetPose.push_back(std::make_pair(hypPose, 0));
+
 			if(rotErr < minRotErrCluster_rot){
 				minRotErrCluster_rot = rotErr;
 				minRotErrCluster_trans = transErr;
@@ -322,7 +327,11 @@ namespace scene{
 		// statsFile << "minTransErrWithinCluster_rot: " << minTransErrWithinCluster_rot << std::endl;
 		// statsFile << "minTransErrWithinCluster_trans: " << minTransErrWithinCluster_trans << std::endl;
 		// statsFile.close();
-		
+	
+		// add the poses to hypothesis set
+		unconditionedHypothesis.push_back(subsetPose);
+	#else
+		unconditionedHypothesis.push_back(allPose);
 	#endif
 	}
 
@@ -338,25 +347,19 @@ namespace scene{
 		}
 
 		// render closest to ground truth pose
-		state::State* bestState = new state::State(numObjects);
-		bestState->updateStateId(-2);
-		for(int i=0;i<objOrder.size();i++)
-			bestState->updateNewObject(objOrder[i], std::make_pair(unconditionedHypothesis[i][0].first, 0.f), numObjects);
+		// state::State* bestState = new state::State(numObjects);
+		// bestState->updateStateId(-2);
+		// for(int i=0;i<objOrder.size();i++)
+		// 	bestState->updateNewObject(objOrder[i], std::make_pair(unconditionedHypothesis[i][0].first, 0.f), numObjects);
 		
-		cv::Mat depth_image_minGT;
-		bestState->render(camPose, scenePath, depth_image_minGT);
-		bestState->computeCost(depth_image_minGT, depthImage);
+		// cv::Mat depth_image_minGT;
+		// bestState->render(camPose, scenePath, depth_image_minGT);
+		// bestState->computeCost(depth_image_minGT, depthImage);
 		
-		ofstream scoreFile;
-		scoreFile.open ((scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-		scoreFile << bestState->stateId << " " << bestState->score << std::endl;
-		scoreFile.close();
-
 	#else
 		for(int i=0;i<objOrder.size();i++){
 			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
 			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
-			unconditionedHypothesis.push_back(allPose);
 		}
 	#endif
 
@@ -408,6 +411,8 @@ namespace scene{
 		cv::Mat depth_image_minLCP;
 		max4PCSState->render(camPose, scenePath, depth_image_minLCP);
 		max4PCSState->computeCost(depth_image_minLCP, depthImage);
+
+		delete tmpSim;
 	}
 
 	/********************************* end of functions ****************************************************
