@@ -76,7 +76,7 @@ namespace utilities{
 	void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose);
-	void getPoseError(Eigen::Matrix4f &testPose, Eigen::Matrix4f &gtPose, Eigen::Vector3f &symInfo, 
+	void getPoseError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, Eigen::Vector3f symInfo, 
 		float &meanrotErr, float &transErr);
 	void addToCVMat(Eigen::Matrix4f &pose, cv::Mat &points, int index);
 	void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index);

@@ -16,6 +16,18 @@ std::map<std::string, Eigen::Vector3f> symMap;
 // depth_sim package
 void initScene (int argc, char **argv);
 
+static void getHypothesisIndex(std::string stateId, std::vector<int> &objectHypothesisIndices, int ssize){
+  std::stringstream ss;
+  int val; 
+  char underScore;
+  ss.str(stateId);
+  ss >> underScore >> val;
+  for(int ii=0;ii<ssize;ii++){
+    ss >> underScore >> val;
+    objectHypothesisIndices.push_back(val);
+  }
+}
+
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
 
@@ -37,98 +49,103 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   currScene->getOrder();
   currScene->getUnconditionedHypothesis();
 
+  // perform search if the flag is set
   if(performSearch){
-    search::Search *UCTSearch = new search::Search(currScene);
-    UCTSearch->heuristicSearch();
+    
+    int poseWritten = 0;
+    std::vector<int> objectHypothesisIndices;
 
-    if(!UCTSearch->bestState->numObjects)
-      std::cout<<"Not enough time to search !!!"<<std::endl;
-    else {
-      std::cout<<"Best State id is: " << UCTSearch->bestState->stateId <<std::endl;
+    for(int ii=0;ii<currScene->independentTrees.size();ii++){
+      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], currScene->unconditionedHypothesis,
+                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
+      UCTSearch->heuristicSearch();
+      getHypothesisIndex(UCTSearch->bestState->stateId, objectHypothesisIndices, currScene->independentTrees[ii].size());
+      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
 
-    #ifdef DBG_SUPER4PCS
-      for(int i = 0;i < UCTSearch->bestState->objects.size();i++){
-        Eigen::Matrix4f tform;
-        utilities::convertToMatrix(UCTSearch->bestState->objects[i].second, tform);
-        utilities::convertToWorld(tform, currScene->camPose);
-        
-        ifstream gtPoseFile;
-        Eigen::Matrix4f gtPose;
-        gtPose.setIdentity();
-        gtPoseFile.open((currScene->scenePath + "gt_pose_" + UCTSearch->bestState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
-        gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
-             >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
-             >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
-        gtPoseFile.close();
-        
-        float rotErr, transErr;
-        utilities::getPoseError(tform, gtPose, UCTSearch->bestState->objects[i].first->symInfo, rotErr, transErr);
-        
-        ofstream statsFile;
-        statsFile.open ((currScene->scenePath + "debug/stats_" + UCTSearch->bestState->objects[i].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-        statsFile << "afterSearchRotErr: " << rotErr << std::endl;
-        statsFile << "afterSearchTransErr: " << transErr << std::endl;
-        statsFile.close();
+      poseWritten += currScene->independentTrees[ii].size();
+    }
+    cv::Mat depth_image_final;
+    currScene->finalState->updateStateId(-2);
+    currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
+
+    /**************************************** search again within best cluster *************************************/
+    currScene->unconditionedHypothesis.clear();
+    for(int ii=0; ii<currScene->objOrder.size();ii++){
+      std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
+      cv::Mat candidatePoses = currScene->clusters[ii][objectHypothesisIndices[ii]];
+      cv::Mat candidateScores = currScene->clusterScores[ii][objectHypothesisIndices[ii]];
+
+      for (int i=0; i<25; ++i) {
+       int number = rand() % candidatePoses.rows;
+       Eigen::Matrix4f tmpPose;
+       Eigen::Isometry3d hypPose;
+       utilities::convert6DToMatrix(tmpPose, candidatePoses, number);
+       utilities::convertToCamera(tmpPose, currScene->camPose);
+       utilities::convertToIsometry3d(tmpPose, hypPose);
+       subsetPose.push_back(std::make_pair(hypPose, 0));
       }
+      currScene->unconditionedHypothesis.push_back(subsetPose);
+    }
+
+    poseWritten = 0;
+    for(int ii=0;ii<currScene->independentTrees.size();ii++){
+      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], currScene->unconditionedHypothesis,
+                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
+      UCTSearch->heuristicSearch();
+      getHypothesisIndex(UCTSearch->bestState->stateId, objectHypothesisIndices, currScene->independentTrees[ii].size());
+      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
+
+      poseWritten += currScene->independentTrees[ii].size();
+    }
+    currScene->finalState->updateStateId(-3);
+    currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
+    /**************************************** search again within best cluster *************************************/
+
+  #ifdef DBG_SUPER4PCS
+    ofstream statsFile;
+    for(int ii=0; ii<currScene->objOrder.size();ii++){
+      Eigen::Matrix4f tform;
+      float rotErr, transErr;
+      utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
+      utilities::convertToWorld(tform, currScene->camPose);
+      utilities::getPoseError(tform, currScene->groundTruth[ii].second, currScene->objOrder[ii]->symInfo, rotErr, transErr);
+      statsFile.open ((currScene->scenePath + "debug/stats_" + currScene->objOrder[ii]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+      statsFile << "AfterSearch_RotErr: " << rotErr << std::endl;
+      statsFile << "AfterSearch_TransErr: " << transErr << std::endl;
+      statsFile.close();
+    }
+  #endif
+  }
+
+  // copy final results to rosmessage
+  for(int ii=0; ii<currScene->finalState->numObjects; ii++){
+    physim_uct::ObjectPose pose;
+    geometry_msgs::Pose msg;
+
+    #ifdef DGB_RESULT
+    Eigen::Matrix4f tform;
+    PointCloud::Ptr transformedCloud (new PointCloud);
+    utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
+    pcl::transformPointCloud(*currScene->finalState->objects[ii].first->pclModel, *transformedCloud, tform);
+    std::string input1 = scenePath + "debug/result_" + currScene->finalState->objects[ii].first->objName + ".ply";
+    pcl::io::savePLYFile(input1, *transformedCloud);
     #endif
-    }
 
-    for(int i=0; i<UCTSearch->bestState->numObjects; i++){
-      physim_uct::ObjectPose pose;
-      geometry_msgs::Pose msg;
+    Eigen::Vector3d trans = currScene->finalState->objects[ii].second.translation();
+    Eigen::Quaterniond rot(currScene->finalState->objects[ii].second.rotation());
 
-      #ifdef DGB_RESULT
-      Eigen::Matrix4f tform;
-      PointCloud::Ptr transformedCloud (new PointCloud);
-      utilities::convertToMatrix(UCTSearch->bestState->objects[i].second, tform);
-      pcl::transformPointCloud(*UCTSearch->bestState->objects[i].first->pclModel, *transformedCloud, tform);
-      std::string input1 = scenePath + "debug/result_" + UCTSearch->bestState->objects[i].first->objName + ".ply";
-      pcl::io::savePLYFile(input1, *transformedCloud);
-      #endif
-
-      Eigen::Vector3d trans = UCTSearch->bestState->objects[i].second.translation();
-      Eigen::Quaterniond rot(UCTSearch->bestState->objects[i].second.rotation());
-
-      msg.position.x = trans[0];
-      msg.position.y = trans[1];
-      msg.position.z = trans[2];
-      msg.orientation.x = rot.x();
-      msg.orientation.y = rot.y();
-      msg.orientation.z = rot.z();
-      msg.orientation.w = rot.w();
-      pose.label = UCTSearch->bestState->objects[i].first->objName;
-      pose.pose = msg;
-      res.Objects.push_back(pose);
-    }
-  } 
-  else {
-    for(int i=0; i<currScene->numObjects; i++){
-
-      #ifdef DGB_RESULT
-      Eigen::Matrix4f tform;
-      PointCloud::Ptr transformedCloud (new PointCloud);
-      utilities::convertToMatrix(currScene->max4PCSPose[i].first, tform);
-      pcl::transformPointCloud(*currScene->objOrder[i]->pclModel, *transformedCloud, tform);
-      std::string input1 = scenePath + "debug/result_" + currScene->objOrder[i]->objName + ".ply";
-      pcl::io::savePLYFile(input1, *transformedCloud);
-      #endif
-
-      physim_uct::ObjectPose pose;
-      geometry_msgs::Pose msg;
-      Eigen::Vector3d trans = currScene->max4PCSPose[i].first.translation();
-      Eigen::Quaterniond rot(currScene->max4PCSPose[i].first.rotation()); 
-
-      msg.position.x = trans[0];
-      msg.position.y = trans[1];
-      msg.position.z = trans[2];
-      msg.orientation.x = rot.x();
-      msg.orientation.y = rot.y();
-      msg.orientation.z = rot.z();
-      msg.orientation.w = rot.w();
-      pose.label = currScene->objOrder[i]->objName;
-      pose.pose = msg;
-      res.Objects.push_back(pose);
-    }
+    msg.position.x = trans[0];
+    msg.position.y = trans[1];
+    msg.position.z = trans[2];
+    msg.orientation.x = rot.x();
+    msg.orientation.y = rot.y();
+    msg.orientation.z = rot.z();
+    msg.orientation.w = rot.w();
+    pose.label = currScene->finalState->objects[ii].first->objName;
+    pose.pose = msg;
+    res.Objects.push_back(pose);
   }
   
   return true;

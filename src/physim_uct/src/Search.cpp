@@ -8,24 +8,28 @@ int numExpansions;
 int numRenders;
 float expansionTime;
 float renderTime;
-float thresholdLCP = 0;
 
 namespace search{
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	Search::Search(scene::Scene *currScene){
+	Search::Search(std::vector<apc_objects::APCObjects*> objOrder, 
+					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
+					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, std::vector<float> cutOffScore){
 		rootState = new state::State(0);
 		rootState->updateStateId(0);
 
-		this->currScene = currScene;
-		this->objOrder = currScene->objOrder;
-		this->unconditionedHypothesis = currScene->unconditionedHypothesis;
+		this->objOrder = objOrder;
+		this->unconditionedHypothesis = unconditionedHypothesis;
+		this->scenePath = scenePath;
+		this->camPose = camPose;
+		this->depthImage = depthImage;
+		this->cutOffScore = cutOffScore;
 
 		// initialize best state
 		bestState = rootState;
-		bestScore = INT_MAX;
+		bestScore = 0;
 
 		// initialize physics engine
 		pSim = new physim::PhySim();
@@ -42,8 +46,8 @@ namespace search{
 
 		const clock_t exp_begin_time = clock();
 
-		expState->performTrICP(currScene->scenePath, 0.9);
-		expState->correctPhysics(pSim, currScene->camPose, currScene->scenePath);
+		expState->performTrICP(scenePath, 0.9);
+		expState->correctPhysics(pSim, camPose, scenePath);
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -52,21 +56,21 @@ namespace search{
 			cv::Mat depth_image;
 
 			const clock_t render_begin_time = clock();
-			expState->render(currScene->camPose, currScene->scenePath, depth_image);
+			expState->render(camPose, scenePath, depth_image);
 			numRenders++;
-			expState->computeCost(depth_image, currScene->depthImage);
+			expState->computeCost(depth_image, depthImage);
 
 		#ifdef DBG_SUPER4PCS
 			float avgRotErr, avgTransErr;
 			for(int i = 0;i < expState->objects.size();i++){
 				Eigen::Matrix4f tform;
 				utilities::convertToMatrix(expState->objects[i].second, tform);
-				utilities::convertToWorld(tform, currScene->camPose);
+				utilities::convertToWorld(tform, camPose);
 
 				ifstream gtPoseFile;
 				Eigen::Matrix4f gtPose;
 				gtPose.setIdentity();
-				gtPoseFile.open((currScene->scenePath + "gt_pose_" + expState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
+				gtPoseFile.open((scenePath + "gt_pose_" + expState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
 				gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
 					>> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
 					>> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
@@ -80,14 +84,14 @@ namespace search{
 			avgRotErr /= expState->objects.size();
 			avgTransErr /= expState->objects.size();
 			ofstream scoreFile;
-			scoreFile.open ((currScene->scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-			scoreFile << avgRotErr << " " << avgTransErr << " " << expState->score << std::endl;
+			scoreFile.open ((scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
+			scoreFile << expState->stateId << " " << expState->score << std::endl;
 			scoreFile.close();
 		#endif
 
 			renderTime += (float( clock () - render_begin_time ) /  CLOCKS_PER_SEC);
 
-			if(expState->score < bestScore){
+			if(expState->score > bestScore){
 				bestState = expState;
 				bestScore = expState->score;
 			}
@@ -95,7 +99,7 @@ namespace search{
 		else{
 			unsigned int nextDepthLevel = expState->numObjects + 1;
 			for(int ii = 0; ii < unconditionedHypothesis[nextDepthLevel - 1].size(); ii++){
-				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second >= thresholdLCP*currScene->max4PCSPose[nextDepthLevel - 1].second){
+				if(unconditionedHypothesis[nextDepthLevel - 1][ii].second >= cutOffScore[nextDepthLevel - 1]){
 					state::State* childState = new state::State(nextDepthLevel);
 					childState->copyParent(expState);
 					childState->updateStateId(ii);

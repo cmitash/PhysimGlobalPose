@@ -1,6 +1,6 @@
 #!/bin/bash
-# echo 'scene-0001'
-# rosservice call /pose_estimation "/home/chaitanya/PoseDataset17/table/scene-0001/"
+echo 'scene-0001'
+rosservice call /pose_estimation "/home/chaitanya/PoseDataset17/table/scene-0001/"
 echo 'scene-0002'
 rosservice call /pose_estimation "/home/chaitanya/PoseDataset17/table/scene-0002/"
 echo 'scene-0003'

@@ -244,7 +244,7 @@ namespace utilities{
 	/********************************* function: getPoseError **********************************************
 	*******************************************************************************************************/
 
-	void getPoseError(Eigen::Matrix4f &testPose, Eigen::Matrix4f &gtPose, Eigen::Vector3f &symInfo, 
+	void getPoseError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, Eigen::Vector3f symInfo, 
 		float &meanrotErr, float &transErr){
 		Eigen::Matrix3f testRot, gtRot, rotdiff;
 		for(int ii = 0;ii < 3; ii++)
@@ -320,7 +320,7 @@ namespace utilities{
 					points.at<float>(index, 5) * M_PI/180.0;
 		toQuaternion(rotXYZ, q);
 		rotMat = q.toRotationMatrix();
-		
+
       	for(int ii = 0;ii < 3; ii++)
 			for(int jj=0; jj < 3; jj++){
 				pose(ii,jj) = rotMat(ii,jj);

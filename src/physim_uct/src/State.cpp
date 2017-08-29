@@ -73,8 +73,6 @@ namespace state{
 	*******************************************************************************************************/
 
 	void State::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
-		renderedImg.convertTo(renderedImg, CV_32FC1);
-		renderedImg = renderedImg/1000;
 		float obScore = 0;
 		float renScore = 0;
 		float intScore = 0;
@@ -88,11 +86,11 @@ namespace state{
 	            float obVal = *pObs++;
 	            float renVal = *pRen++;
 
-	            float absDiff = abs(obVal - renVal);
+	            float absDiff = fabs(obVal - renVal);
 
-	            if(obVal)obScore += absDiff;
-	            if(renVal < 1)renScore += absDiff;
-	            if(obVal && (renVal < 1))intScore += absDiff;
+	            if(obVal > 0 && absDiff < 0.01)obScore++;
+	            if(renVal > 0 && absDiff < 0.01)renScore++;
+	            if(obVal > 0 && renVal > 0 && absDiff < 0.01)intScore++;
 	        }
 	    }
 	    score = obScore + renScore - intScore;

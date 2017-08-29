@@ -21,6 +21,18 @@ using namespace std;
 SimExample::Ptr simexample;
 pcl::simulation::Scene::Ptr scene_;
 
+static void writeDepthImage(cv::Mat &depthImg, std::string path){
+    cv::Mat depthImgRaw = cv::Mat::zeros(depthImg.rows, depthImg.cols, CV_16UC1);
+    for(int u=0; u<depthImg.rows; u++)
+      for(int v=0; v<depthImg.cols; v++){
+        float depth = depthImg.at<float>(u,v)*10000;
+        unsigned short depthShort = (unsigned short)depth;
+        depthShort = (depthShort << 3 | depthShort >> 13);
+        depthImgRaw.at<unsigned short>(u, v) = depthShort;
+      }
+    cv::imwrite(path, depthImgRaw);
+}
+
 void clearScene(){
   scene_->clear();
 }
@@ -52,8 +64,11 @@ void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path){
   simexample->doSim(camera_pose);
 
   const float *depth_buffer = simexample->rl_->getDepthBuffer();
-  simexample->write_depth_image(depth_buffer, path);
   simexample->get_depth_image_cv(depth_buffer, depth_image);
+  depth_image.convertTo(depth_image, CV_32FC1);
+  depth_image = depth_image/1000;
+  depth_image.setTo(0,depth_image>1);
+  writeDepthImage(depth_image, path);
 }
 
 void initScene (int argc, char **argv)

@@ -1,5 +1,4 @@
 #include <Scene.hpp>
-#include <State.hpp>
 #include <fstream>
 
 #include <detection_package/UpdateActiveListFrame.h>
@@ -16,7 +15,7 @@ namespace scene{
 
 	Scene::Scene(std::string scenePath){
 		srand (time(NULL));
-
+		
 		// Reading objects file and add the scene objects
 		std::ifstream filein((scenePath + "objects.txt").c_str());
 		std::string line;
@@ -46,6 +45,8 @@ namespace scene{
 	  			filein >> camIntrinsic(i,j);
 	  	filein.close();
 
+	  	lcpThreshold = 0;
+	  	finalState = new state::State(0);
 	  	colorImage = cv::imread(scenePath + "frame-000000.color.png", CV_LOAD_IMAGE_COLOR);
 	    utilities::readDepthImage(depthImage, scenePath + "frame-000000.depth.png");
 	} 
@@ -161,6 +162,312 @@ namespace scene{
 
 	void Scene::getOrder(){
 		objOrder = sceneObjs;
+		if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0001/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0002/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0003/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0004/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0005/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0006/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0007/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0008/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0009/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0010/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0011/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0012/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0013/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0014/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0015/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0016/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0017/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0018/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0019/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0020/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0021/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0022/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0023/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0024/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0025/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0026/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0027/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0028/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0029/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0030/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			independentTrees.push_back(tmpobjOrder);
+
+			tmpobjOrder.clear();
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
 	}
 
 	/********************************* function: readGroundTruth *******************************************
@@ -178,7 +485,234 @@ namespace scene{
 			groundTruth.push_back(std::make_pair(objOrder[i], gtPose));
 		}
 	}
-	
+
+	/********************************* function: withinCLusterLookup ***************************************
+	*******************************************************************************************************/
+	void Scene::withinCLusterLookup(cv::Mat points, apc_objects::APCObjects* obj, Eigen::Matrix4f gtPose,
+			 						cv::Mat clusterIndices, int bestClusterIdx){
+		cv::Mat colMean, colMeanRepAll;
+
+		float minRotErrWithinCluster_rot = INT_MAX;
+		float minRotErrWithinCluster_trans = INT_MAX;
+
+		float minTransErrWithinCluster_rot = INT_MAX;
+		float minTransErrWithinCluster_trans = INT_MAX;
+
+		float rotErr, transErr;
+		for(int ii = 0; ii < points.rows; ii++){
+			if(clusterIndices.at<int>(ii) == bestClusterIdx){
+				Eigen::Matrix4f tmpPose;
+				utilities::convert6DToMatrix(tmpPose, points, ii);
+				utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+				if(rotErr < minRotErrWithinCluster_rot){
+					minRotErrWithinCluster_rot = rotErr;
+					minRotErrWithinCluster_trans = transErr;
+				}
+				if(transErr < minTransErrWithinCluster_trans){
+					minTransErrWithinCluster_rot = rotErr;
+					minTransErrWithinCluster_trans = transErr;
+				}
+			}
+		}
+
+		ofstream statsFile;
+		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		statsFile << "minRotErrWithinCluster_rot: " << minRotErrWithinCluster_rot << std::endl;
+		statsFile << "minRotErrWithinCluster_trans: " << minRotErrWithinCluster_trans << std::endl;
+		statsFile << "minTransErrWithinCluster_rot: " << minTransErrWithinCluster_rot << std::endl;
+		statsFile << "minTransErrWithinCluster_trans: " << minTransErrWithinCluster_trans << std::endl;
+		statsFile.close();
+	}
+
+	/********************************* function: clusterRotWithinTrans *************************************
+	*******************************************************************************************************/
+
+	void Scene::clusterRotWithinTrans(std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &scoreTrans, cv::Mat& transCenters, int k,
+									  apc_objects::APCObjects* obj, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose, Eigen::Matrix4f gtPose){
+		float minRotErrHierrCluster_rot = INT_MAX;
+		float minRotErrHierrCluster_trans = INT_MAX;
+
+		float minTransErrHierrCluster_rot = INT_MAX;
+		float minTransErrHierrCluster_trans = INT_MAX;
+
+		std::vector<cv::Mat> pointsClusters(k*k);
+		std::vector<cv::Mat> scoreClusters(k*k);
+
+		for(int transIter=0; transIter<k; transIter++){
+			cv::Mat rotCenters, rotIndices;
+			cv::Mat rotPts(transClusters[transIter].rows, 3, CV_32F);
+
+			for(int dim=3;dim<6;dim++)
+				transClusters[transIter].col(dim).copyTo(rotPts.col(dim-3));
+
+			cv::kmeans(rotPts, /* num clusters */ k, rotIndices, cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 1000, 0.001)
+			, /*int attempts*/ 10, cv::KMEANS_PP_CENTERS, rotCenters);
+
+			for(int inClusterPt=0; inClusterPt<transClusters[transIter].rows; inClusterPt++){
+				pointsClusters[transIter*k + rotIndices.at<int>(inClusterPt)].push_back(transClusters[transIter].row(inClusterPt));
+				scoreClusters[transIter*k + rotIndices.at<int>(inClusterPt)].push_back(scoreTrans[transIter].row(inClusterPt));
+			}
+
+			// use best LCP score guy as the cluster representative
+			cv::Mat bestLCPRepresentative;
+			for(int rotIter=0; rotIter<k; rotIter++){
+				cv::Point min_loc, max_loc;
+				double min, max;
+				cv::minMaxLoc(scoreClusters[rotIter], &min, &max, &min_loc, &max_loc);
+				bestLCPRepresentative.push_back(pointsClusters[rotIter].row(max_loc.y));
+			}
+
+			// use the average translation from rotational clusters
+			// std::vector<cv::Mat> avgTransRotClusters(k);
+			// for(int kk=0; kk<k; kk++){
+			// 	cv::reduce(pointsClusters[kk], avgTransRotClusters[kk], 0, CV_REDUCE_AVG);
+			// }
+
+			for(int jj=0;jj<k;jj++){
+				cv::Mat clusterRep;
+				float rotErr, transErr;
+				Eigen::Matrix4f tmpPose;
+				Eigen::Isometry3d hypPose;
+				Eigen::Isometry3d isoPose;
+
+				// use best LCP score guy as the cluster representative
+				clusterRep.push_back(bestLCPRepresentative.row(jj));
+				utilities::convert6DToMatrix(tmpPose, clusterRep, 0);
+
+				// use the k-cluster centers from translational clustering
+				// cv::hconcat(transCenters.row(transIter), rotCenters.row(jj),clusterRep);
+				// utilities::convert6DToMatrix(tmpPose, clusterRep, 0);
+
+				// use the average translation from rotational clusters
+				// cv::hconcat(avgTransRotClusters[jj].colRange(0, 2), rotCenters.row(jj),clusterRep);
+				// utilities::convert6DToMatrix(tmpPose, clusterRep, 0); 
+				
+				// perform ICP on the hypothesis
+				// utilities::convertToCamera(tmpPose, camPose);
+				// utilities::convertToIsometry3d(tmpPose, isoPose);
+				// state::State* tmpState = new state::State(0);
+				// tmpState->updateStateId(-3);
+				// tmpState->numObjects = 1;
+				// tmpState->updateNewObject(obj, std::make_pair(isoPose, 0.f), tmpState->numObjects);
+				// tmpState->performTrICP(scenePath, 0.9);
+				// utilities::convertToMatrix(tmpState->objects[tmpState->numObjects-1].second, tmpPose);
+				// utilities::convertToWorld(tmpPose, camPose);
+
+				// compute the error from ground truth
+				utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+				
+				// add the cluster representative to the hypothesis set
+				utilities::convertToCamera(tmpPose, camPose);
+				utilities::convertToIsometry3d(tmpPose, hypPose);
+				subsetPose.push_back(std::make_pair(hypPose, 0));
+
+				if(rotErr < minRotErrHierrCluster_rot){
+					minRotErrHierrCluster_rot = rotErr;
+					minRotErrHierrCluster_trans = transErr;
+				}
+				if(transErr < minTransErrHierrCluster_trans){
+					minTransErrHierrCluster_rot = rotErr;
+					minTransErrHierrCluster_trans = transErr;
+				}
+			}
+		}
+		ofstream statsFile;
+		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		statsFile << "minRotErrHierrCluster_rot: " << minRotErrHierrCluster_rot << std::endl;
+		statsFile << "minRotErrHierrCluster_trans: " << minRotErrHierrCluster_trans << std::endl;
+		statsFile << "minTransErrHierrCluster_rot: " << minTransErrHierrCluster_rot << std::endl;
+		statsFile << "minTransErrHierrCluster_trans: " << minTransErrHierrCluster_trans << std::endl;
+		statsFile.close();
+
+		clusters.push_back(pointsClusters);
+		clusterScores.push_back(scoreClusters);
+	}
+
+	/********************************* function: clusterTransPoseSet ***************************************
+	*******************************************************************************************************/
+
+	void Scene::clusterTransPoseSet(cv::Mat points, cv::Mat scores, std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &scoreTrans,
+										 cv::Mat& transCenters, apc_objects::APCObjects* obj, int k){
+		cv::Mat transPts(points.rows, 3, CV_32F);
+		for(int dim=0;dim<3;dim++)
+			points.col(dim).copyTo(transPts.col(dim));
+
+		cv::Mat transIndices;
+		cv::kmeans(transPts, /* num clusters */ k, transIndices, cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 1000, 0.001)
+			, /*int attempts*/ 10, cv::KMEANS_PP_CENTERS, transCenters);
+
+		for(int ii=0; ii<points.rows; ii++){
+			transClusters[transIndices.at<int>(ii)].push_back(points.row(ii));
+			scoreTrans[transIndices.at<int>(ii)].push_back(scores.row(ii));
+		}
+	}
+
+	/********************************* function: clusterPoseSet *******************************************
+	*******************************************************************************************************/
+	void Scene::clusterPoseSet(cv::Mat points, cv::Mat &clusterIndices, cv::Mat &clusterCenters,
+								int &bestClusterIdx, apc_objects::APCObjects* obj, Eigen::Matrix4f gtPose,
+			 					int k, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose){
+		cv::Mat colMean, colMeanRepAll, colMeanRepK;
+		cv::reduce(points, colMean, 0, CV_REDUCE_AVG);
+		cv::repeat(colMean, points.rows, 1, colMeanRepAll);
+		cv::repeat(colMean, k, 1, colMeanRepK);
+		points = points/colMeanRepAll;
+
+		cv::kmeans(points, /* num clusters */ k, clusterIndices, cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 1000, 0.001)
+			, /*int attempts*/ 10, cv::KMEANS_PP_CENTERS, clusterCenters);
+
+		float rotErr, transErr;
+		float minRotErrCluster_rot = INT_MAX;
+		float minRotErrCluster_trans = INT_MAX;
+
+		float minTransErrCluster_rot = INT_MAX;
+		float minTransErrCluster_trans = INT_MAX;
+
+		bestClusterIdx = -1;
+		clusterCenters = clusterCenters.mul(colMeanRepK);
+		for(int ii = 0; ii < k; ii++){
+			Eigen::Matrix4f tmpPose;
+			Eigen::Isometry3d hypPose;
+			utilities::convert6DToMatrix(tmpPose, clusterCenters, ii);
+
+			Eigen::Isometry3d isoPose;
+			utilities::convertToCamera(tmpPose, camPose);
+			utilities::convertToIsometry3d(tmpPose, isoPose);
+			state::State* tmpState = new state::State(0);
+			tmpState->updateStateId(-4);
+			tmpState->numObjects = 1;
+			tmpState->updateNewObject(obj, std::make_pair(isoPose, 0.f), tmpState->numObjects);
+			tmpState->performTrICP(scenePath, 0.9);
+			utilities::convertToMatrix(tmpState->objects[tmpState->numObjects-1].second, tmpPose);
+			utilities::convertToWorld(tmpPose, camPose);
+
+			utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
+
+			utilities::convertToCamera(tmpPose, camPose);
+			utilities::convertToIsometry3d(tmpPose, hypPose);
+			subsetPose.push_back(std::make_pair(hypPose, 0));
+
+			if(rotErr < minRotErrCluster_rot){
+				minRotErrCluster_rot = rotErr;
+				minRotErrCluster_trans = transErr;
+				bestClusterIdx = ii;
+			}
+			if(transErr < minTransErrCluster_trans){
+				minTransErrCluster_rot = rotErr;
+				minTransErrCluster_trans = transErr;
+			}
+		}
+		points = points.mul(colMeanRepAll);
+
+		ofstream statsFile;
+		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		statsFile << "ClusterHypBestRotation_RotErr: " << minRotErrCluster_rot << std::endl;
+		statsFile << "ClusterHypBestRotation_TransErr: " << minRotErrCluster_trans << std::endl;
+		statsFile << "ClusterHypBestTranslation_RotErr: " << minTransErrCluster_rot << std::endl;
+		statsFile << "ClusterHypBestTranslation_TransErr: " << minTransErrCluster_trans << std::endl;
+		statsFile.close();
+	}
+
 	/********************************* function: getHypothesis *********************************************
 	*******************************************************************************************************/
 #ifdef DBG_SUPER4PCS
@@ -198,6 +732,7 @@ namespace scene{
 		float bestscore = 0;
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allPose);
 		max4PCSPose.push_back(std::make_pair(bestPose, bestscore));
+		cutOffScore.push_back(lcpThreshold*bestscore);
 		
 		std::cout << "object hypothesis count: " << allPose.size() << std::endl;
 		std::cout << "bestScore: " << bestscore <<std::endl;
@@ -205,7 +740,7 @@ namespace scene{
 		std::cout << "###################################################" <<std::endl;
 
 	#ifdef DBG_SUPER4PCS
-		// get the closest to ground truth from set of all hypothesis
+		// check all hypothesis from super4pcs
 		float rotErr, transErr;
 		float minRotErr_rot = INT_MAX;
 		float minRotErr_trans = INT_MAX;
@@ -214,6 +749,7 @@ namespace scene{
 		float minTransErr_trans = INT_MAX;
 
 		cv::Mat points(allPose.size(), 6, CV_32F);
+		cv::Mat scores(allPose.size(), 1, CV_32F);
 		int bestGTPoseIdx = -1;
 		for(int ii = 0; ii < allPose.size(); ii++){
 			Eigen::Matrix4f pose;
@@ -221,6 +757,8 @@ namespace scene{
 			utilities::convertToWorld(pose, camPose);
 			utilities::addToCVMat(pose, points, ii);
 			utilities::getPoseError(pose, gtPose, obj->symInfo, rotErr, transErr);
+			scores.at<float>(ii, 0) = allPose[ii].second;
+
 			if(rotErr < minRotErr_rot){
 				minRotErr_rot = rotErr;
 				minRotErr_trans = transErr;
@@ -231,15 +769,6 @@ namespace scene{
 				minTransErr_trans = transErr;
 			}
 		}
-
-		std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
-		// trial test:: get 9 random and 1 best hypothesis to search over
-		// subsetPose.push_back(allPose[bestGTPoseIdx]);
-		// for (int i=0; i<9; ++i) {
-		// 	int number = rand() % allPose.size();
-		// 	subsetPose.push_back(allPose[number]);
-		// }
-		
 		ofstream statsFile;
 		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 		statsFile << "allHypBestRotation_RotErr: " << minRotErr_rot << std::endl;
@@ -248,86 +777,24 @@ namespace scene{
 		statsFile << "allHypBestTranslation_TransErr: " << minTransErr_trans << std::endl;
 		statsFile.close();
 
+		std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
+
 		// k-means clustering of poses
-		int k = 50;
-		cv::Mat colMean, colMeanRepAll, colMeanRepK;
-		cv::reduce(points, colMean, 0, CV_REDUCE_AVG);
-		cv::repeat(colMean, allPose.size(), 1, colMeanRepAll);
-		cv::repeat(colMean, k, 1, colMeanRepK);
-		points = points/colMeanRepAll;
+		// cv::Mat clusterIndices, clusterCenters;
+		// int bestClusterIdx;
+		// int k1 = 10;
+		// clusterPoseSet(points, clusterIndices, clusterCenters, bestClusterIdx, obj, gtPose, k1, subsetPose);
+		// withinCLusterLookup(points, obj, gtPose, clusterIndices, bestClusterIdx);
 
-		cv::Mat clusterIndices;
-		cv::Mat clusterCenters;
-		cv::kmeans(points, /* num clusters */ k, clusterIndices, cv::TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 1000, 0.001)
-			, /*int attempts*/ 10, cv::KMEANS_PP_CENTERS, clusterCenters);
+		// hierarchical k-means clustering of poses: first translation, then rotation
+		cv::Mat transCenters;
+		int k2 = 5;
+		std::vector<cv::Mat> transClusters(k2);
+		std::vector<cv::Mat> scoreTrans(k2);
+		
+		clusterTransPoseSet(points, scores, transClusters, scoreTrans, transCenters, obj, k2);
+		clusterRotWithinTrans(transClusters, scoreTrans, transCenters, k2, obj, subsetPose, gtPose);
 
-		float minRotErrCluster_rot = INT_MAX;
-		float minRotErrCluster_trans = INT_MAX;
-
-		float minTransErrCluster_rot = INT_MAX;
-		float minTransErrCluster_trans = INT_MAX;
-
-		int bestClusterIdx = -1;
-		clusterCenters = clusterCenters.mul(colMeanRepK);
-		for(int ii = 0; ii < k; ii++){
-			Eigen::Matrix4f tmpPose;
-			Eigen::Isometry3d hypPose;
-			utilities::convert6DToMatrix(tmpPose, clusterCenters, ii);
-			utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
-
-			utilities::convertToCamera(tmpPose, camPose);
-			utilities::convertToIsometry3d(tmpPose, hypPose);
-			subsetPose.push_back(std::make_pair(hypPose, 0));
-
-			if(rotErr < minRotErrCluster_rot){
-				minRotErrCluster_rot = rotErr;
-				minRotErrCluster_trans = transErr;
-				bestClusterIdx = ii;
-			}
-			if(transErr < minTransErrCluster_trans){
-				minTransErrCluster_rot = rotErr;
-				minTransErrCluster_trans = transErr;
-			}
-		}
-
-		statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-		statsFile << "ClusterHypBestRotation_RotErr: " << minRotErrCluster_rot << std::endl;
-		statsFile << "ClusterHypBestRotation_TransErr: " << minRotErrCluster_trans << std::endl;
-		statsFile << "ClusterHypBestTranslation_RotErr: " << minTransErrCluster_rot << std::endl;
-		statsFile << "ClusterHypBestTranslation_TransErr: " << minTransErrCluster_trans << std::endl;
-		statsFile.close();
-
-		// within cluster search
-		// float minRotErrWithinCluster_rot = INT_MAX;
-		// float minRotErrWithinCluster_trans = INT_MAX;
-
-		// float minTransErrWithinCluster_rot = INT_MAX;
-		// float minTransErrWithinCluster_trans = INT_MAX;
-
-		// points = points.mul(colMeanRepAll);
-		// for(int ii = 0; ii < points.rows; ii++){
-		// 	if(clusterIndices.at<int>(ii) == bestClusterIdx){
-		// 		Eigen::Matrix4f tmpPose;
-		// 		utilities::convert6DToMatrix(tmpPose, points, ii);
-		// 		utilities::getPoseError(tmpPose, gtPose, obj->symInfo, rotErr, transErr);
-		// 		if(rotErr < minRotErrWithinCluster_rot){
-		// 			minRotErrWithinCluster_rot = rotErr;
-		// 			minRotErrWithinCluster_trans = transErr;
-		// 		}
-		// 		if(transErr < minTransErrWithinCluster_trans){
-		// 			minTransErrWithinCluster_rot = rotErr;
-		// 			minTransErrWithinCluster_trans = transErr;
-		// 		}
-		// 	}
-		// }
-
-		// statsFile.open ((scenePath + "debug/stats_" + obj->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-		// statsFile << "minRotErrWithinCluster_rot: " << minRotErrWithinCluster_rot << std::endl;
-		// statsFile << "minRotErrWithinCluster_trans: " << minRotErrWithinCluster_trans << std::endl;
-		// statsFile << "minTransErrWithinCluster_rot: " << minTransErrWithinCluster_rot << std::endl;
-		// statsFile << "minTransErrWithinCluster_trans: " << minTransErrWithinCluster_trans << std::endl;
-		// statsFile.close();
-	
 		// add the poses to hypothesis set
 		unconditionedHypothesis.push_back(subsetPose);
 	#else
@@ -346,50 +813,31 @@ namespace scene{
 			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose, groundTruth[i].second);
 		}
 
-		// render closest to ground truth pose
-		// state::State* bestState = new state::State(numObjects);
-		// bestState->updateStateId(-2);
-		// for(int i=0;i<objOrder.size();i++)
-		// 	bestState->updateNewObject(objOrder[i], std::make_pair(unconditionedHypothesis[i][0].first, 0.f), numObjects);
-		
-		// cv::Mat depth_image_minGT;
-		// bestState->render(camPose, scenePath, depth_image_minGT);
-		// bestState->computeCost(depth_image_minGT, depthImage);
-		
-	#else
-		for(int i=0;i<objOrder.size();i++){
-			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
-			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
-		}
-	#endif
+		finalState->updateStateId(-1);
 
-		// evaluate the best LCP hypothesis returned by Super4PCS
-		state::State* max4PCSState = new state::State(0);
-		max4PCSState->updateStateId(-1);
-		
 		physim::PhySim *tmpSim = new physim::PhySim();
 		tmpSim->addTable(0.55);
 		for(int ii=0; ii<objOrder.size(); ii++)
 			tmpSim->initRigidBody(objOrder[ii]->objName);
 
 		for(int i=0;i<objOrder.size();i++){
-			max4PCSState->numObjects = i+1;
-			max4PCSState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), max4PCSState->numObjects);
 			Eigen::Matrix4f bestPoseMat;
 			float rotErr, transErr;
+			ofstream statsFile;
+
+			finalState->numObjects = i+1;
+			finalState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), finalState->numObjects);
 			utilities::convertToMatrix(max4PCSPose[i].first, bestPoseMat);
 			utilities::convertToWorld(bestPoseMat, camPose);
 			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
-
-			ofstream statsFile;
 			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 			statsFile << "BestLCP_RotErr: " << rotErr << std::endl;
 			statsFile << "BestLCP_TransErr: " << transErr << std::endl;
 			statsFile.close();
 
 			// perform ICP and evaluate error
-			max4PCSState->performTrICP(scenePath, 0.9);
-			utilities::convertToMatrix(max4PCSState->objects[max4PCSState->numObjects-1].second, bestPoseMat);
+			finalState->performTrICP(scenePath, 0.9);
+			utilities::convertToMatrix(finalState->objects[finalState->numObjects-1].second, bestPoseMat);
 			utilities::convertToWorld(bestPoseMat, camPose);
 			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
 			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
@@ -398,21 +846,27 @@ namespace scene{
 			statsFile.close();
 
 			// perform simulation and evaluate error
-			max4PCSState->correctPhysics(tmpSim, camPose, scenePath);
-			utilities::convertToMatrix(max4PCSState->objects[max4PCSState->numObjects-1].second, bestPoseMat);
-			utilities::convertToWorld(bestPoseMat, camPose);
-			utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
-			statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-			statsFile << "BestLCP_AfterICPSimulation_RotErr: " << rotErr << std::endl;
-			statsFile << "BestLCP_AfterICPSimulation_TransErr: " << transErr << std::endl;
-			statsFile.close();
+			// finalState->correctPhysics(tmpSim, camPose, scenePath);
+			// utilities::convertToMatrix(finalState->objects[finalState->numObjects-1].second, bestPoseMat);
+			// utilities::convertToWorld(bestPoseMat, camPose);
+			// utilities::getPoseError(bestPoseMat, groundTruth[i].second, objOrder[i]->symInfo, rotErr, transErr);
+			// statsFile.open ((scenePath + "debug/stats_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			// statsFile << "BestLCP_AfterICPSimulation_RotErr: " << rotErr << std::endl;
+			// statsFile << "BestLCP_AfterICPSimulation_TransErr: " << transErr << std::endl;
+			// statsFile.close();
 
 		}
 		cv::Mat depth_image_minLCP;
-		max4PCSState->render(camPose, scenePath, depth_image_minLCP);
-		max4PCSState->computeCost(depth_image_minLCP, depthImage);
+		finalState->render(camPose, scenePath, depth_image_minLCP);
+		finalState->computeCost(depth_image_minLCP, depthImage);
 
 		delete tmpSim;
+	#else
+		for(int i=0;i<objOrder.size();i++){
+			std::vector< std::pair <Eigen::Isometry3d, float> > allPose;
+			getHypothesis(objOrder[i], objOrder[i]->pclSegment, objOrder[i]->pclModel, allPose);
+		}
+	#endif
 	}
 
 	/********************************* end of functions ****************************************************
