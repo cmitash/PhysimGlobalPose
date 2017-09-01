@@ -10,6 +10,7 @@ namespace apc_objects{
 
 	std::string pathPclModels = "/models/pcl/";
 	std::string pathObjModels = "/models/obj/";
+	std::string pathObjSparse = "/models/sparse/";
 
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
@@ -19,7 +20,7 @@ namespace apc_objects{
 		objIdx = objMap[name];
 		symInfo = symMap[name];
 		pclModel = PointCloud::Ptr(new PointCloud);
-		pclModelDense = PointCloud::Ptr(new PointCloud);
+		pclModelSparse = PointCloud::Ptr(new PointCloud);
 		pcl::io::loadPCDFile(env_p + pathPclModels + name + ".pcd", *pclModel);
 		pcl::io::loadPolygonFile(env_p + pathObjModels + name + ".obj" , objModel);
 
@@ -27,5 +28,12 @@ namespace apc_objects{
 		sor.setInputCloud (pclModel);
 		sor.setLeafSize (0.005f, 0.005f, 0.005f);
 		sor.filter (*pclModel);
+
+		sor.setInputCloud (pclModel);
+		sor.setLeafSize (0.03f, 0.03f, 0.03f);
+		sor.filter (*pclModelSparse);
+		// pcl::fromPCLPointCloud2(objModel.cloud, *pclModelSparse);
+		// pcl::io::savePLYFile(env_p + pathObjSparse + name + ".ply", *pclModelSparse);
+		// pcl::io::loadPLYFile(env_p + pathObjSparse + name + ".ply", *pclModelSparse);
 	}
 }

@@ -78,6 +78,8 @@ namespace utilities{
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose);
 	void getPoseError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, Eigen::Vector3f symInfo, 
 		float &meanrotErr, float &transErr);
+	void getEMDError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, PointCloud::Ptr objModel, float &error,
+		float x_min, float x_max, float y_min, float y_max, float z_min, float z_max);
 	void addToCVMat(Eigen::Matrix4f &pose, cv::Mat &points, int index);
 	void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index);
 }

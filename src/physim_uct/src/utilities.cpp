@@ -241,6 +241,69 @@ namespace utilities{
 		q.z() = sy * cr * cp - cy * sr * sp;
 	}
 
+	/********************************* function: getEMDError ***********************************************
+	*******************************************************************************************************/
+
+	void getEMDError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, PointCloud::Ptr objModel, float &error,
+		float x_min, float x_max, float y_min, float y_max, float z_min, float z_max){
+    	PointCloud::Ptr pcl_1 (new PointCloud);
+    	PointCloud::Ptr pcl_2 (new PointCloud);
+    	pcl::transformPointCloud(*objModel, *pcl_1, testPose);
+    	pcl::transformPointCloud(*objModel, *pcl_2, gtPose);
+
+    	int num_rows = pcl_1->points.size();
+		cv::Mat xyzPts_1(num_rows, 1, CV_32FC3);
+		cv::Mat xyzPts_2(num_rows, 1, CV_32FC3);
+
+    	for(int ii=0; ii<num_rows; ii++){
+			xyzPts_1.at<cv::Vec3f>(ii,0)[0] = pcl_1->points[ii].x;
+		    xyzPts_1.at<cv::Vec3f>(ii,0)[1] = pcl_1->points[ii].y;
+		    xyzPts_1.at<cv::Vec3f>(ii,0)[2] = pcl_1->points[ii].z;
+
+		    xyzPts_2.at<cv::Vec3f>(ii,0)[0] = pcl_2->points[ii].x;
+		    xyzPts_2.at<cv::Vec3f>(ii,0)[1] = pcl_2->points[ii].y;
+		    xyzPts_2.at<cv::Vec3f>(ii,0)[2] = pcl_2->points[ii].z;
+
+		}
+		cv::MatND hist_1, hist_2;
+		int xbins = 10, ybins = 10, zbins = 10;
+		int histSize[] = {xbins, ybins, zbins};
+	  	float xranges[] = {x_min, x_max};
+		float yranges[] = {y_min, y_max};
+		float zranges[] = {z_min, z_max};
+		int channels[] = {0, 1, 2};
+		const float* ranges[] = { xranges, yranges, zranges};
+		
+	    cv::calcHist( &xyzPts_1, 1, channels, cv::Mat(), hist_1, 3, histSize, ranges, true, false);
+	    cv::calcHist( &xyzPts_2, 1, channels, cv::Mat(), hist_2, 3, histSize, ranges, true, false);
+
+	    // std::cout << x_min << " " << y_min << " " << z_min << " " << x_max << " " << y_max << " " << z_max << std::endl;
+	    int sigSize = xbins*ybins*zbins;
+	  	cv::Mat sig1(sigSize, 4, CV_32FC1);
+	  	cv::Mat sig2(sigSize, 4, CV_32FC1);
+
+		//fill value into signature
+		for(int x=0; x<xbins; x++) {
+			for(int y=0; y<ybins; y++) {
+		    	for(int z=0; z<zbins; z++) {
+			        float binval = hist_1.at<float>(x,y,z);
+			        sig1.at<float>( x*ybins*zbins + y*zbins + z, 0) = binval;
+			        sig1.at<float>( x*ybins*zbins + y*zbins + z, 1) = x;
+			        sig1.at<float>( x*ybins*zbins + y*zbins + z, 2) = y;
+			        sig1.at<float>( x*ybins*zbins + y*zbins + z, 3) = z;
+
+			        binval = hist_2.at<float>(x,y,z);
+			        sig2.at<float>( x*ybins*zbins + y*zbins + z, 0) = binval;
+			        sig2.at<float>( x*ybins*zbins + y*zbins + z, 1) = x;
+			        sig2.at<float>( x*ybins*zbins + y*zbins + z, 2) = y;
+			        sig2.at<float>( x*ybins*zbins + y*zbins + z, 3) = z;
+		        }
+		    }
+		}
+
+	   error = cv::EMD(sig1, sig2, CV_DIST_L2); //emd 0 is best matching.   
+	}
+
 	/********************************* function: getPoseError **********************************************
 	*******************************************************************************************************/
 

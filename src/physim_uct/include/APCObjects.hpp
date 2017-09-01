@@ -16,7 +16,7 @@ namespace apc_objects{
 		int objIdx;
 		std::string objName;
 		PointCloud::Ptr pclModel;
-		PointCloud::Ptr pclModelDense;
+		PointCloud::Ptr pclModelSparse;
 		PointCloud::Ptr pclSegment;
 		PointCloud::Ptr pclSegmentDense;
 		pcl::PolygonMesh objModel;

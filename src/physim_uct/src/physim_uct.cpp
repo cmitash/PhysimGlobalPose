@@ -6,7 +6,7 @@
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-bool performSearch = 1;
+bool performSearch = 0;
 
 // Global definations
 std::string env_p;
@@ -69,6 +69,21 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     currScene->finalState->updateStateId(-2);
     currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
 
+    #ifdef DBG_SUPER4PCS
+    ofstream statsFile;
+    for(int ii=0; ii<currScene->objOrder.size();ii++){
+      Eigen::Matrix4f tform;
+      float rotErr, transErr;
+      utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
+      utilities::convertToWorld(tform, currScene->camPose);
+      utilities::getPoseError(tform, currScene->groundTruth[ii].second, currScene->objOrder[ii]->symInfo, rotErr, transErr);
+      statsFile.open ((currScene->scenePath + "debug/stats_" + currScene->objOrder[ii]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+      statsFile << "AfterSearch_RotErr: " << rotErr << std::endl;
+      statsFile << "AfterSearch_TransErr: " << transErr << std::endl;
+      statsFile.close();
+    }
+  #endif
+
     /**************************************** search again within best cluster *************************************/
     currScene->unconditionedHypothesis.clear();
     for(int ii=0; ii<currScene->objOrder.size();ii++){
@@ -104,7 +119,6 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     /**************************************** search again within best cluster *************************************/
 
   #ifdef DBG_SUPER4PCS
-    ofstream statsFile;
     for(int ii=0; ii<currScene->objOrder.size();ii++){
       Eigen::Matrix4f tform;
       float rotErr, transErr;
@@ -112,8 +126,8 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
       utilities::convertToWorld(tform, currScene->camPose);
       utilities::getPoseError(tform, currScene->groundTruth[ii].second, currScene->objOrder[ii]->symInfo, rotErr, transErr);
       statsFile.open ((currScene->scenePath + "debug/stats_" + currScene->objOrder[ii]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-      statsFile << "AfterSearch_RotErr: " << rotErr << std::endl;
-      statsFile << "AfterSearch_TransErr: " << transErr << std::endl;
+      statsFile << "AfterSearchWithin_RotErr: " << rotErr << std::endl;
+      statsFile << "AfterSearchWithin_TransErr: " << transErr << std::endl;
       statsFile.close();
     }
   #endif

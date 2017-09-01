@@ -25,6 +25,9 @@ namespace scene{
 			void clusterPoseSet(cv::Mat points, cv::Mat &clusterIndices, cv::Mat &clusterCenters,
 								int &bestClusterIdx, apc_objects::APCObjects* obj, Eigen::Matrix4f gtPose,
 			 					int k, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose);
+			void customClustering(cv::Mat points, cv::Mat &clusterIndices, cv::Mat &clusterCenters,
+								int &bestClusterIdx, apc_objects::APCObjects* obj, Eigen::Matrix4f gtPose,
+			 					int k, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose);
 			void withinCLusterLookup(cv::Mat points, apc_objects::APCObjects* obj, Eigen::Matrix4f gtPose,
 			 						cv::Mat clusterIndices, int bestClusterIdx);
 			void clusterTransPoseSet(cv::Mat points, cv::Mat scores, std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &,
