@@ -8,6 +8,9 @@ int numExpansions;
 int numRenders;
 float expansionTime;
 float renderTime;
+clock_t search_begin_time;
+float tableHeight = 0.545;
+float trimICPthreshold = 0.9;
 
 namespace search{
 	
@@ -33,9 +36,11 @@ namespace search{
 
 		// initialize physics engine
 		pSim = new physim::PhySim();
-		pSim->addTable(0.55);
+		pSim->addTable(tableHeight);
 		for(int ii=0; ii<objOrder.size(); ii++)
 			pSim->initRigidBody(objOrder[ii]->objName);
+
+		search_begin_time = clock();
 	}
 
 	/********************************* function: expandNode ***********************************************
@@ -46,7 +51,7 @@ namespace search{
 
 		const clock_t exp_begin_time = clock();
 
-		expState->performTrICP(scenePath, 0.9);
+		expState->performTrICP(scenePath, trimICPthreshold);
 		expState->correctPhysics(pSim, camPose, scenePath);
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
@@ -60,40 +65,27 @@ namespace search{
 			numRenders++;
 			expState->computeCost(depth_image, depthImage);
 
-		#ifdef DBG_SUPER4PCS
-			float avgRotErr, avgTransErr;
-			for(int i = 0;i < expState->objects.size();i++){
-				Eigen::Matrix4f tform;
-				utilities::convertToMatrix(expState->objects[i].second, tform);
-				utilities::convertToWorld(tform, camPose);
-
-				ifstream gtPoseFile;
-				Eigen::Matrix4f gtPose;
-				gtPose.setIdentity();
-				gtPoseFile.open((scenePath + "gt_pose_" + expState->objects[i].first->objName + ".txt").c_str(), std::ifstream::in);
-				gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
-					>> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
-					>> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
-				gtPoseFile.close();
-
-				float rotErr, transErr;
-				utilities::getPoseError(tform, gtPose, expState->objects[i].first->symInfo, rotErr, transErr);
-				avgRotErr += rotErr;
-				avgTransErr += transErr;
-			}
-			avgRotErr /= expState->objects.size();
-			avgTransErr /= expState->objects.size();
-			ofstream scoreFile;
-			scoreFile.open ((scenePath + "debug/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-			scoreFile << expState->stateId << " " << expState->score << std::endl;
-			scoreFile.close();
-		#endif
-
 			renderTime += (float( clock () - render_begin_time ) /  CLOCKS_PER_SEC);
 
 			if(expState->score > bestScore){
 				bestState = expState;
 				bestScore = expState->score;
+
+			#ifdef DBG_SUPER4PCS
+				for(int ii=0; ii<objOrder.size();ii++){
+			      Eigen::Matrix4f tform;
+			      utilities::convertToMatrix(bestState->objects[ii].second, tform);
+			      utilities::convertToWorld(tform, camPose);
+			      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "after_search");
+
+			      ofstream pFile;
+			      pFile.open ((scenePath + "debug/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+				  pFile << (float( clock () - search_begin_time ) /  CLOCKS_PER_SEC) << std::endl;
+				  pFile.close();
+			    }
+			    
+			#endif
+
 			}
 		}
 		else{

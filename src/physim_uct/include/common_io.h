@@ -58,8 +58,8 @@ extern std::string env_p;
 extern std::map<std::string, Eigen::Vector3f> symMap; // FIX ME
 
 #define DBG_SUPER4PCS
-// #define DBG_ICP
-// #define DBG_PHYSICS
+#define DBG_ICP
+#define DBG_PHYSICS
 #define DGB_RESULT
 
 // Declaration for common utility functions
@@ -76,12 +76,16 @@ namespace utilities{
 	void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose);
+	float getRotDistance(Eigen::Matrix3f rotMat1, Eigen::Matrix3f rotMat2, Eigen::Vector3f symInfo);
 	void getPoseError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, Eigen::Vector3f symInfo, 
 		float &meanrotErr, float &transErr);
 	void getEMDError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, PointCloud::Ptr objModel, float &error,
-		float x_min, float x_max, float y_min, float y_max, float z_min, float z_max);
-	void addToCVMat(Eigen::Matrix4f &pose, cv::Mat &points, int index);
+		std::pair<float, float> &xrange, std::pair<float, float> &yrange, std::pair<float, float> &zrange);
+	void convertToCVMat(Eigen::Matrix4f &pose, cv::Mat &cvPose);
 	void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index);
+	void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q);
+	Eigen::Vector3f rotationMatrixToEulerAngles(Eigen::Matrix3f R);
+	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename);
 }
 
 #endif

@@ -1,5 +1,7 @@
 #include <PhySim.hpp>
 
+int gravityVal = -2;
+
 namespace physim{
 
 	/********************************* function: constructor ***********************************************
@@ -11,7 +13,7 @@ namespace physim{
 		btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
 		btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
 		dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher,overlappingPairCache,solver,collisionConfiguration);
-		dynamicsWorld->setGravity(btVector3(0,0,-10));
+		dynamicsWorld->setGravity(btVector3(0,0,gravityVal));
 	}
 
 	/********************************* function: addTable **************************************************
@@ -32,6 +34,9 @@ namespace physim{
 
 		btRigidBody* body = new btRigidBody(mass,0,groundShape,localInertia);	
 		body->setWorldTransform(groundTransform);
+		body->setDamping(0.99f,0.99f);
+		body->setFriction(1.f);
+		body->setRestitution(0.f);
 		dynamicsWorld->addRigidBody(body);
 	}
 
@@ -59,6 +64,8 @@ namespace physim{
 
 		btRigidBody* body = new btRigidBody(mass,0,shape,localInertia);
 		body->setDamping(0.99f,0.99f);
+		body->setFriction(1.f);
+		body->setRestitution(0.f);
 		body->setActivationState(DISABLE_DEACTIVATION);
 		rBodyMap[objName] = body;
 		cShapes[objName] = shape;
@@ -93,7 +100,7 @@ namespace physim{
 	*******************************************************************************************************/
 
 	void PhySim::simulate(int num_steps){
-		dynamicsWorld->setGravity(btVector3(0,0,-10));
+		dynamicsWorld->setGravity(btVector3(0,0,gravityVal));
 		for (int ii = 0; ii < num_steps; ii++)
 			dynamicsWorld->stepSimulation(1.f/60.f);
 	}

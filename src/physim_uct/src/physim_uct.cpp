@@ -1,12 +1,15 @@
 #include <APCObjects.hpp>
 #include <Scene.hpp>
 #include <Search.hpp>
+#include <Evaluate.hpp>
 
 #include <physim_uct/EstimateObjectPose.h>
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-bool performSearch = 0;
+bool performSearch = 1;
+bool evalPoseDataset17 = 0;
+int evalDatasetSize = 30; 
 
 // Global definations
 std::string env_p;
@@ -15,18 +18,6 @@ std::map<std::string, Eigen::Vector3f> symMap;
 
 // depth_sim package
 void initScene (int argc, char **argv);
-
-static void getHypothesisIndex(std::string stateId, std::vector<int> &objectHypothesisIndices, int ssize){
-  std::stringstream ss;
-  int val; 
-  char underScore;
-  ss.str(stateId);
-  ss >> underScore >> val;
-  for(int ii=0;ii<ssize;ii++){
-    ss >> underScore >> val;
-    objectHypothesisIndices.push_back(val);
-  }
-}
 
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
@@ -51,86 +42,26 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
 
   // perform search if the flag is set
   if(performSearch){
-    
     int poseWritten = 0;
-    std::vector<int> objectHypothesisIndices;
-
     for(int ii=0;ii<currScene->independentTrees.size();ii++){
-      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], currScene->unconditionedHypothesis,
+      
+      std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
+      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+        hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
+
+      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], hypothesis,
                                   currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
       UCTSearch->heuristicSearch();
-      getHypothesisIndex(UCTSearch->bestState->stateId, objectHypothesisIndices, currScene->independentTrees[ii].size());
+
       for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
         currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
 
       poseWritten += currScene->independentTrees[ii].size();
     }
+
     cv::Mat depth_image_final;
     currScene->finalState->updateStateId(-2);
     currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
-
-    #ifdef DBG_SUPER4PCS
-    ofstream statsFile;
-    for(int ii=0; ii<currScene->objOrder.size();ii++){
-      Eigen::Matrix4f tform;
-      float rotErr, transErr;
-      utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
-      utilities::convertToWorld(tform, currScene->camPose);
-      utilities::getPoseError(tform, currScene->groundTruth[ii].second, currScene->objOrder[ii]->symInfo, rotErr, transErr);
-      statsFile.open ((currScene->scenePath + "debug/stats_" + currScene->objOrder[ii]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-      statsFile << "AfterSearch_RotErr: " << rotErr << std::endl;
-      statsFile << "AfterSearch_TransErr: " << transErr << std::endl;
-      statsFile.close();
-    }
-  #endif
-
-    /**************************************** search again within best cluster *************************************/
-    currScene->unconditionedHypothesis.clear();
-    for(int ii=0; ii<currScene->objOrder.size();ii++){
-      std::vector< std::pair <Eigen::Isometry3d, float> > subsetPose;
-      cv::Mat candidatePoses = currScene->clusters[ii][objectHypothesisIndices[ii]];
-      cv::Mat candidateScores = currScene->clusterScores[ii][objectHypothesisIndices[ii]];
-
-      for (int i=0; i<25; ++i) {
-       int number = rand() % candidatePoses.rows;
-       Eigen::Matrix4f tmpPose;
-       Eigen::Isometry3d hypPose;
-       utilities::convert6DToMatrix(tmpPose, candidatePoses, number);
-       utilities::convertToCamera(tmpPose, currScene->camPose);
-       utilities::convertToIsometry3d(tmpPose, hypPose);
-       subsetPose.push_back(std::make_pair(hypPose, 0));
-      }
-      currScene->unconditionedHypothesis.push_back(subsetPose);
-    }
-
-    poseWritten = 0;
-    for(int ii=0;ii<currScene->independentTrees.size();ii++){
-      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], currScene->unconditionedHypothesis,
-                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
-      UCTSearch->heuristicSearch();
-      getHypothesisIndex(UCTSearch->bestState->stateId, objectHypothesisIndices, currScene->independentTrees[ii].size());
-      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
-        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
-
-      poseWritten += currScene->independentTrees[ii].size();
-    }
-    currScene->finalState->updateStateId(-3);
-    currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
-    /**************************************** search again within best cluster *************************************/
-
-  #ifdef DBG_SUPER4PCS
-    for(int ii=0; ii<currScene->objOrder.size();ii++){
-      Eigen::Matrix4f tform;
-      float rotErr, transErr;
-      utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
-      utilities::convertToWorld(tform, currScene->camPose);
-      utilities::getPoseError(tform, currScene->groundTruth[ii].second, currScene->objOrder[ii]->symInfo, rotErr, transErr);
-      statsFile.open ((currScene->scenePath + "debug/stats_" + currScene->objOrder[ii]->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
-      statsFile << "AfterSearchWithin_RotErr: " << rotErr << std::endl;
-      statsFile << "AfterSearchWithin_TransErr: " << transErr << std::endl;
-      statsFile.close();
-    }
-  #endif
   }
 
   // copy final results to rosmessage
@@ -163,6 +94,36 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   }
   
   return true;
+}
+
+/********************************* function: evaluatePoseDataset17 **************************************
+********************************************************************************************************/
+
+void evaluatePoseDataset17(){
+  evaluate::Evaluate *pEval = new evaluate::Evaluate();
+
+  for(int i=1; i<=evalDatasetSize; i++){
+    char buf[50];
+    sprintf(buf,"/home/chaitanya/PoseDataset17/table/scene-%04d/", i);
+    std::string scenePath(buf);
+    std::cout << scenePath << std::endl;
+    scene::Scene *currScene = new scene::Scene(scenePath);
+    std::cout<<"number of objects: " << currScene->numObjects << std::endl
+             <<"camera pose: " << std::endl << currScene->camPose << std::endl
+             <<"camera intrinsics: "<< std::endl << currScene->camIntrinsic << std::endl;
+    currScene->removeTable();
+    currScene->performRCNNDetection();
+    currScene->get3DSegments();
+    currScene->getOrder();
+    pEval->readGroundTruth(currScene);
+    pEval->getSuper4pcsError(currScene, i-1);
+    pEval->getAllHypoError(currScene, i-1);
+    pEval->getClusterHypoError(currScene, i-1);
+    pEval->getSearchResults(currScene, i-1);
+    
+    delete currScene;
+  }
+  pEval->writeResults();
 }
 
 /********************************* function: loadObjects ***********************************************
@@ -223,6 +184,11 @@ int main(int argc, char **argv){
     exit(-1);
   }
   loadObjects(Objects);
+
+  if(evalPoseDataset17){
+    evaluatePoseDataset17();
+    exit(-1);
+  }
 
   ros::ServiceServer service = n.advertiseService("pose_estimation", estimatePose);
   ROS_INFO("Ready for pose estimation");

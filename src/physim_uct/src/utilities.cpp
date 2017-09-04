@@ -1,5 +1,7 @@
 #include <common_io.h>
 
+int numBinsEMD = 10;
+
 namespace utilities{
 	
 	/********************************* function: meshgrid **************************************************
@@ -224,7 +226,7 @@ namespace utilities{
 	from wikipedia
 	*******************************************************************************************************/
 
-	static void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q){
+	void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q){
 		double roll = eulAngles[0];
 		double pitch = eulAngles[1];
 		double yaw = eulAngles[2];
@@ -240,12 +242,37 @@ namespace utilities{
 		q.y() = cy * cr * sp + sy * sr * cp;
 		q.z() = sy * cr * cp - cy * sr * sp;
 	}
+	
+	/********************************* function: rotationMatrixToEulerAngles *******************************
+	*******************************************************************************************************/
+	// Calculates rotation matrix to euler angles
+	// The result is the same as MATLAB except the order
+	// of the euler angles ( x and z are swapped ).
+	Eigen::Vector3f rotationMatrixToEulerAngles(Eigen::Matrix3f R) {
+	    float sy = sqrt(R(0,0) * R(0,0) +  R(1,0) * R(1,0) );
+	    bool singular = sy < 1e-6;
+	    float x, y, z;
+	    if (!singular) {
+	        x = atan2(R(2,1) , R(2,2));
+	        y = atan2(-R(2,0), sy);
+	        z = atan2(R(1,0), R(0,0));
+	    }
+	    else {
+	        x = atan2(-R(1,2), R(1,1));
+	        y = atan2(-R(2,0), sy);
+	        z = 0;
+	    }
+	    Eigen::Vector3f rot;
+	    rot << x, y, z;
+	    return rot;
+	}
 
 	/********************************* function: getEMDError ***********************************************
 	*******************************************************************************************************/
 
 	void getEMDError(Eigen::Matrix4f testPose, Eigen::Matrix4f gtPose, PointCloud::Ptr objModel, float &error,
-		float x_min, float x_max, float y_min, float y_max, float z_min, float z_max){
+		std::pair<float, float> &xrange, std::pair<float, float> &yrange, std::pair<float, float> &zrange){
+
     	PointCloud::Ptr pcl_1 (new PointCloud);
     	PointCloud::Ptr pcl_2 (new PointCloud);
     	pcl::transformPointCloud(*objModel, *pcl_1, testPose);
@@ -266,18 +293,18 @@ namespace utilities{
 
 		}
 		cv::MatND hist_1, hist_2;
-		int xbins = 10, ybins = 10, zbins = 10;
+		int xbins = numBinsEMD, ybins = numBinsEMD, zbins = numBinsEMD;
 		int histSize[] = {xbins, ybins, zbins};
-	  	float xranges[] = {x_min, x_max};
-		float yranges[] = {y_min, y_max};
-		float zranges[] = {z_min, z_max};
+	  	float xranges[] = {xrange.first, xrange.second};
+		float yranges[] = {yrange.first, yrange.second};
+		float zranges[] = {zrange.first, zrange.second};
 		int channels[] = {0, 1, 2};
 		const float* ranges[] = { xranges, yranges, zranges};
 		
 	    cv::calcHist( &xyzPts_1, 1, channels, cv::Mat(), hist_1, 3, histSize, ranges, true, false);
 	    cv::calcHist( &xyzPts_2, 1, channels, cv::Mat(), hist_2, 3, histSize, ranges, true, false);
 
-	    // std::cout << x_min << " " << y_min << " " << z_min << " " << x_max << " " << y_max << " " << z_max << std::endl;
+	    // std::cout << xrange.first << " " << yrange.first << " " << zrange.first << " " << xrange.second << " " << yrange.second << " " << zrange.second << std::endl;
 	    int sigSize = xbins*ybins*zbins;
 	  	cv::Mat sig1(sigSize, 4, CV_32FC1);
 	  	cv::Mat sig2(sigSize, 4, CV_32FC1);
@@ -343,13 +370,42 @@ namespace utilities{
 				pow(gtPose(2,3) - testPose(2,3), 2));
 	}
 
-	/********************************* function: addToCVMat ************************************************
+	/******************************** function: getRotDistance *********************************************
 	*******************************************************************************************************/
 
-	void addToCVMat(Eigen::Matrix4f &pose, cv::Mat &points, int index){
-		points.at<float>(index, 0) = pose(0,3);
-		points.at<float>(index, 1) = pose(1,3);
-		points.at<float>(index, 2) = pose(2,3);
+	float getRotDistance(Eigen::Matrix3f rotMat1, Eigen::Matrix3f rotMat2, Eigen::Vector3f symInfo){
+		Eigen::Matrix3f rotdiff;
+
+		rotdiff = rotMat1*rotMat2;
+		Eigen::Vector3f rotErrXYZ;
+		rotErrXYZ = rotationMatrixToEulerAngles(rotdiff);
+		rotErrXYZ = rotErrXYZ*180.0/M_PI;
+
+		for(int dim = 0; dim < 3; dim++){
+			rotErrXYZ(dim) = fabs(rotErrXYZ(dim));
+			if (symInfo(dim) == 90){
+				rotErrXYZ(dim) = abs(rotErrXYZ(dim) - 90);
+				rotErrXYZ(dim) = std::min(rotErrXYZ(dim), 90 - rotErrXYZ(dim));
+			}
+			else if(symInfo(dim) == 180){
+				rotErrXYZ(dim) = std::min(rotErrXYZ(dim), 180 - rotErrXYZ(dim));
+			}
+			else if(symInfo(dim) == 360){
+				rotErrXYZ(dim) = 0;
+			}
+		}
+
+		float meanrotErr = (rotErrXYZ(0) + rotErrXYZ(1) + rotErrXYZ(2))/3;
+		return meanrotErr;
+	}
+
+	/********************************* function: convertToCVMat ********************************************
+	*******************************************************************************************************/
+
+	void convertToCVMat(Eigen::Matrix4f &pose, cv::Mat &cvPose){
+		cvPose.at<float>(0, 0) = pose(0,3);
+		cvPose.at<float>(0, 1) = pose(1,3);
+		cvPose.at<float>(0, 2) = pose(2,3);
 
 		Eigen::Matrix3f rotMat;
 		for(int ii = 0;ii < 3; ii++)
@@ -361,9 +417,9 @@ namespace utilities{
 		toEulerianAngle(rotMatQ, rotErrXYZ);
 		rotErrXYZ = rotErrXYZ*180.0/M_PI;
 
-		points.at<float>(index, 3) = rotErrXYZ(0);
-		points.at<float>(index, 4) = rotErrXYZ(1);
-		points.at<float>(index, 5) = rotErrXYZ(2);
+		cvPose.at<float>(0, 3) = rotErrXYZ(0);
+		cvPose.at<float>(0, 4) = rotErrXYZ(1);
+		cvPose.at<float>(0, 5) = rotErrXYZ(2);
 	}
 
 	/********************************* function: convert6DToMatrix *****************************************
@@ -388,6 +444,18 @@ namespace utilities{
 			for(int jj=0; jj < 3; jj++){
 				pose(ii,jj) = rotMat(ii,jj);
 			}
+	}
+
+	/********************************* function: writePoseToFile *******************************************
+	*******************************************************************************************************/
+	
+	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename){
+		ofstream pFile;
+		pFile.open ((scenePath + "debug/" + filename + "_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		pFile << pose(0,0) << " " << pose(0,1) << " " << pose(0,2) << " " << pose(0,3) 
+					 << " " << pose(1,0) << " " << pose(1,1) << " " << pose(1,2) << " " << pose(1,3)
+					 << " " << pose(2,0) << " " << pose(2,1) << " " << pose(2,2) << " " << pose(2,3) << std::endl;
+		pFile.close();
 	}
 
 	/********************************* end of functions ****************************************************

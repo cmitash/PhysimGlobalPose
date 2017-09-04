@@ -90,6 +90,7 @@ add_executable(physim_uct ${RIGIDBODY_EXAMPLE_OBJS}
                           src/Search.cpp
                           src/utilities.cpp
                           src/PhySim.cpp
+                          src/Evaluate.cpp
                           )
                           
 add_dependencies(physim_uct ${catkin_EXPORTED_TARGETS})

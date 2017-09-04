@@ -4,6 +4,8 @@ void addObjects(pcl::PolygonMesh::Ptr mesh);
 void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
 void clearScene();
 
+float explanationThreshold = 0.005;
+
 namespace state{
 	
 	/********************************* function: constructor ***********************************************
@@ -88,9 +90,9 @@ namespace state{
 
 	            float absDiff = fabs(obVal - renVal);
 
-	            if(obVal > 0 && absDiff < 0.01)obScore++;
-	            if(renVal > 0 && absDiff < 0.01)renScore++;
-	            if(obVal > 0 && renVal > 0 && absDiff < 0.01)intScore++;
+	            if(obVal > 0 && absDiff < explanationThreshold)obScore++;
+	            if(renVal > 0 && absDiff < explanationThreshold)renScore++;
+	            if(obVal > 0 && renVal > 0 && absDiff < explanationThreshold)intScore++;
 	        }
 	    }
 	    score = obScore + renScore - intScore;
@@ -144,37 +146,72 @@ namespace state{
 		if(!numObjects)
 			return;
 		PointCloud::Ptr transformedCloud (new PointCloud);
+		PointCloud::Ptr unexplainedSegment (new PointCloud);
+		PointCloud::Ptr explainedPts (new PointCloud);
+		pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 		Eigen::Matrix4f tform;
+		
+		// initialize trimmed ICP
+		pcl::recognition::TrimmedICP<pcl::PointXYZ, float> tricp;
+		tricp.init(objects[numObjects-1].first->pclModel);
+		tricp.setNewToOldEnergyRatio(1.f);
+
+		// remove points explained by objects already placed objects
+		copyPointCloud(*objects[numObjects-1].first->pclSegment, *unexplainedSegment);
+		
+		#ifdef DBG_ICP
+		std::string input1 = scenePath + "debug/render" + stateId + "_Presegment.ply";
+		pcl::io::savePLYFile(input1, *unexplainedSegment);
+		#endif
+
+		if(numObjects > 1){
+			for(int ii=0; ii<numObjects-1; ii++) {
+				Eigen::Matrix4f objPose;
+				utilities::convertToMatrix(objects[ii].second, objPose);
+				pcl::transformPointCloud(*objects[ii].first->pclModel, *transformedCloud, objPose);
+				*explainedPts += *transformedCloud;
+			}
+
+			kdtree.setInputCloud (explainedPts);
+
+			for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
+				std::vector<int> pointIdxRadiusSearch;
+	  			std::vector<float> pointRadiusSquaredDistance;
+	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.005, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
+	  				unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
+	  				unexplainedSegment->width--;
+	  			}
+			}
+		}
+
+		#ifdef DBG_ICP
+		std::string input2 = scenePath + "debug/render" + stateId + "_Postsegment.ply";
+		pcl::io::savePLYFile(input2, *unexplainedSegment);
+		#endif
+
+		float numPoints = trimPercentage*unexplainedSegment->points.size();
+		
+		// get current object transform
 		utilities::convertToMatrix(objects[numObjects-1].second, tform);
 		tform = tform.inverse().eval();
 
-		pcl::recognition::TrimmedICP<pcl::PointXYZ, float> tricp;
-		tricp.init(objects[numObjects-1].first->pclModel);
-
-		tricp.setNewToOldEnergyRatio(1.f);
-
-		float numPoints = trimPercentage*objects[numObjects-1].first->pclSegment->points.size();
-		
 		#ifdef DBG_ICP
 		std::cout<< "size of cloud: "<<abs(numPoints)<<std::endl;
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform.inverse().eval());
-		std::string input1 = scenePath + "debug/render" + stateId + "_Premodel.ply";
-		pcl::io::savePLYFile(input1, *transformedCloud);
+		std::string input3 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
-		tricp.align(*objects[numObjects-1].first->pclSegment, abs(numPoints), tform);
+		tricp.align(*unexplainedSegment, abs(numPoints), tform);
 
-		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug/render" + stateId + "_segment.ply";
-		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
-		#endif
+		
 
 		tform = tform.inverse().eval();
 
 		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
-		pcl::io::savePLYFile(input3, *transformedCloud);
+		std::string input4 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
+		pcl::io::savePLYFile(input4, *transformedCloud);
 		#endif
 
 		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
