@@ -4,15 +4,15 @@ bool operator<(const state::State& lhs, const state::State& rhs) {
 	return lhs.hval < rhs.hval;
 }
 
-int numExpansions;
-int numRenders;
-float expansionTime;
-float renderTime;
-clock_t search_begin_time;
-float tableHeight = 0.545;
-float trimICPthreshold = 0.9;
-
 namespace search{
+
+	int numExpansions;
+	int numRenders;
+	float expansionTime;
+	float renderTime;
+	clock_t search_begin_time;
+	float tableHeight = 0.545;
+	float trimICPthreshold = 0.9;
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
@@ -53,6 +53,7 @@ namespace search{
 
 		expState->performTrICP(scenePath, trimICPthreshold);
 		expState->correctPhysics(pSim, camPose, scenePath);
+		expState->performTrICP(scenePath, trimICPthreshold/2);
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -128,46 +129,6 @@ namespace search{
 		std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
 		std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
 	}
-
-	/********************************* function: UCTSearch *************************************************
-	*******************************************************************************************************/
-
-	// void Search::expand(){
-		
-	// }
-
-	// /********************************* function: treePolicy ************************************************
-	// *******************************************************************************************************/
-
-	// void Search::treePolicy(state::State *currState){
-	// 	while()
-	// }
-
-	// /********************************* function: UCTSearch *************************************************
-	// *******************************************************************************************************/
-
-	// void Search::UCTSearch(){
-	// 	const clock_t begin_time = clock();
-		
-	// 	numExpansions = 0;
-	// 	numRenders = 0;
-	// 	expansionTime = 0;
-	// 	renderTime = 0;
-
-	// 	while(1){
-
-	// 		if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600)
-	// 			break;
-
-	// 		state::State *selState = treePolicy(rootState);
-	// 		float reward = defaultPolicy(selState);
-	// 		backupReward(selState, reward);
-	// 	}
-
-	// 	std::cout<<"total number of state expansions: " << numExpansions <<std::endl;
-	// 	std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
-	// 	std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
-	// }
 
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/

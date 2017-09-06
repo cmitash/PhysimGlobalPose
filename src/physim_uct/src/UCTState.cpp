@@ -1,38 +1,29 @@
-#include <State.hpp>
+#include <UCTState.hpp>
 
 void addObjects(pcl::PolygonMesh::Ptr mesh);
 void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
 void clearScene();
 
-float explanationThreshold = 0.005;
+namespace uct_state{
+	float explanationThreshold = 0.005;
+	float alpha = 0.5;
 
-namespace state{
-	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	State::State(unsigned int numObjects){
+	UCTState::UCTState(unsigned int numObjects, 
+			std::vector< std::pair <Eigen::Isometry3d, float> > hypSet, UCTState* parent) : isExpanded(hypSet.size(), 0){
 		this->numObjects = numObjects;
-		hval = INT_MAX;
+		hval = 0;
 		score = INT_MAX;
-	}
-
-	/********************************* function: expand ****************************************************
-	*******************************************************************************************************/
-
-	void State::expand(){
-		std::cout << "***************State::expand***************" << std::endl;
-		std::cout << "numObjects: " << numObjects<<std::endl;
-		std::cout << "hval: " << hval <<std::endl;
-		for(int ii=0; ii<objects.size(); ii++){
-			std::cout << "Objects " << ii << ": " << objects[ii].first->objName << std::endl;
-		}
+		numChildren = hypSet.size();
+		parentState = parent;
 	}
 
 	/********************************* function: copyParent ************************************************
 	*******************************************************************************************************/
 
-	void State::copyParent(State* copyFrom){
+	void UCTState::copyParent(UCTState* copyFrom){
 		this->objects = copyFrom->objects;
 		this->stateId = copyFrom->stateId;
 	}
@@ -40,7 +31,7 @@ namespace state{
 	/********************************* function: render ****************************************************
 	*******************************************************************************************************/
 
-	void State::render(Eigen::Matrix4f cam_pose, std::string scenePath, cv::Mat &depth_image){
+	void UCTState::render(Eigen::Matrix4f cam_pose, std::string scenePath, cv::Mat &depth_image){
 		clearScene();
 		for(int ii=0; ii<objects.size(); ii++){
   			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[ii].first->objModel));
@@ -57,15 +48,14 @@ namespace state{
 	/********************************* function: updateNewObject *******************************************
 	*******************************************************************************************************/
 
-	void State::updateNewObject(apc_objects::APCObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
+	void UCTState::updateNewObject(apc_objects::APCObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
 		objects.push_back(std::make_pair(newObj, pose.first));
-		hval = (1 - pose.second)*(maxDepth - numObjects);
 	}
 
 	/********************************* function: updateStateId *********************************************
 	*******************************************************************************************************/
 
-	void State::updateStateId(int num){
+	void UCTState::updateStateId(int num){
 		char nums[20];
 		sprintf(nums,"_%d", num);
 		stateId.append(nums);
@@ -74,7 +64,7 @@ namespace state{
 	/********************************* function: computeCost ***********************************************
 	*******************************************************************************************************/
 
-	void State::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
+	void UCTState::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
 		float obScore = 0;
 		float renScore = 0;
 		float intScore = 0;
@@ -102,7 +92,7 @@ namespace state{
 	/********************************* function: performICP ************************************************
 	*******************************************************************************************************/
 
-	void State::performICP(std::string scenePath, float max_corr){
+	void UCTState::performICP(std::string scenePath, float max_corr){
 		if(!numObjects)
 			return;
 		PointCloud::Ptr transformedCloud (new PointCloud);
@@ -142,7 +132,7 @@ namespace state{
 	/********************************* function: performTrICP **********************************************
 	*******************************************************************************************************/
 
-	void State::performTrICP(std::string scenePath, float trimPercentage){
+	void UCTState::performTrICP(std::string scenePath, float trimPercentage){
 		if(!numObjects)
 			return;
 		PointCloud::Ptr transformedCloud (new PointCloud);
@@ -174,23 +164,14 @@ namespace state{
 
 			kdtree.setInputCloud (explainedPts);
 
-			pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
-			pcl::ExtractIndices<pcl::PointXYZ> extract;
-
 			for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
 				std::vector<int> pointIdxRadiusSearch;
 	  			std::vector<float> pointRadiusSquaredDistance;
-	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
-	  				// unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
-	  				// unexplainedSegment->width--;
-	  				inliers->indices.push_back(ii);
+	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.005, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
+	  				unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
+	  				unexplainedSegment->width--;
 	  			}
 			}
-			extract.setInputCloud (unexplainedSegment);
-		    extract.setIndices (inliers);
-		    extract.setNegative (true);
-		    extract.filter (*unexplainedSegment);
-
 		}
 
 		#ifdef DBG_ICP
@@ -213,8 +194,6 @@ namespace state{
 
 		tricp.align(*unexplainedSegment, abs(numPoints), tform);
 
-		
-
 		tform = tform.inverse().eval();
 
 		#ifdef DBG_ICP
@@ -228,7 +207,7 @@ namespace state{
 
 	/********************************* function: correctPhysics ********************************************
 	*******************************************************************************************************/
-	void State::correctPhysics(physim::PhySim* pSim, Eigen::Matrix4f cam_pose, std::string scenePath){
+	void UCTState::correctPhysics(physim::PhySim* pSim, Eigen::Matrix4f cam_pose, std::string scenePath){
 		if(!numObjects)
 			return;
 
@@ -290,6 +269,34 @@ namespace state{
 
 		for(int ii=0; ii<numObjects; ii++)
 			pSim->removeObject(objects[ii].first->objName);
+	}
+
+	/******************************** function: getBestChild ************************************************
+	/*******************************************************************************************************/
+
+	uct_state::UCTState* UCTState::getBestChild(){
+		int bestChildIdx = -1;
+		float bestVal = 0;
+
+		for(int ii=0; ii<numChildren; ii++){
+			float tmpVal = (children[ii]->hval/children[ii]->numExpansions) + alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
+			if (tmpVal > bestVal){
+				bestVal = tmpVal;
+				bestChildIdx = ii;
+			}
+		}
+
+		return children[bestChildIdx];
+	}
+
+	/******************************** function: isFullyExpanded *********************************************
+	/*******************************************************************************************************/
+
+	bool UCTState::isFullyExpanded(){
+		for(int ii=0; ii<numChildren; ii++)
+			if(isExpanded[ii] == 0)return false;
+
+		return true;
 	}
 
 	/********************************* end of functions ****************************************************
