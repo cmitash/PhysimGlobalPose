@@ -8,7 +8,7 @@ namespace uct_state{
 	
 	class UCTState{
 		public:
-			UCTState(unsigned int numObjects, std::vector< std::pair <Eigen::Isometry3d, float> > hypSet, UCTState* parent);
+			UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent);
 			void copyParent(UCTState*);
 			void updateNewObject(apc_objects::APCObjects*, std::pair <Eigen::Isometry3d, float>, int maxDepth);
 			void render(Eigen::Matrix4f, std::string, cv::Mat &depth_image);
@@ -24,8 +24,8 @@ namespace uct_state{
 			unsigned int numObjects;
 			std::vector<std::pair<apc_objects::APCObjects*, Eigen::Isometry3d> > objects;
 			float hval;
-			unsigned int score;
 			int numExpansions;
+			unsigned int score;
 			int numChildren;
 			UCTState* parentState;
 			std::vector<UCTState*> children;

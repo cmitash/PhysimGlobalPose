@@ -451,13 +451,22 @@ namespace utilities{
 	
 	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename){
 		ofstream pFile;
-		pFile.open ((scenePath + "debug/" + filename + "_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		pFile.open ((scenePath +  filename + "_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 		pFile << pose(0,0) << " " << pose(0,1) << " " << pose(0,2) << " " << pose(0,3) 
 					 << " " << pose(1,0) << " " << pose(1,1) << " " << pose(1,2) << " " << pose(1,3)
 					 << " " << pose(2,0) << " " << pose(2,1) << " " << pose(2,2) << " " << pose(2,3) << std::endl;
 		pFile.close();
 	}
 
+	/********************************* function: writeScoreToFile ******************************************
+	*******************************************************************************************************/
+
+	void writeScoreToFile(float score, std::string objName, std::string scenePath, std::string filename){
+		ofstream pFile;
+		pFile.open ((scenePath +  filename + "_" + objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		pFile << score << std::endl;
+		pFile.close();
+	}
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
 

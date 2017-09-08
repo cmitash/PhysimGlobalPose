@@ -6,17 +6,17 @@ void clearScene();
 
 namespace uct_state{
 	float explanationThreshold = 0.005;
-	float alpha = 0.5;
+	float alpha = 1000;
 
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	UCTState::UCTState(unsigned int numObjects, 
-			std::vector< std::pair <Eigen::Isometry3d, float> > hypSet, UCTState* parent) : isExpanded(hypSet.size(), 0){
+	UCTState::UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent) : isExpanded(numChildNodes, 0){
 		this->numObjects = numObjects;
 		hval = 0;
+		numExpansions = 0;
 		score = INT_MAX;
-		numChildren = hypSet.size();
+		numChildren = numChildNodes;
 		parentState = parent;
 	}
 
@@ -42,7 +42,7 @@ namespace uct_state{
   			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
   			addObjects(mesh_out);
 		}
-		renderDepth(cam_pose, depth_image, scenePath + "debug/render" + stateId + ".png");
+		renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
 	}
 
 	/********************************* function: updateNewObject *******************************************
@@ -86,7 +86,7 @@ namespace uct_state{
 	        }
 	    }
 	    score = obScore + renScore - intScore;
-	    std::cout<<"score: "<<score<<std::endl;
+	    std::cout<<"UCTState::computeCost:: Score: "<<score<<std::endl;
 	}
 
 	/********************************* function: performICP ************************************************
@@ -110,11 +110,11 @@ namespace uct_state{
 		icp.align(icptransformedCloud);
 
 		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug/render" + stateId + "_segment.ply";
+		std::string input2 = scenePath + "debug_search/render" + stateId + "_segment.ply";
 		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
 
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input1 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		std::string input1 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input1, *transformedCloud);
 		#endif
 
@@ -122,7 +122,7 @@ namespace uct_state{
 		
 		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
+		std::string input3 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
@@ -150,7 +150,7 @@ namespace uct_state{
 		copyPointCloud(*objects[numObjects-1].first->pclSegment, *unexplainedSegment);
 		
 		#ifdef DBG_ICP
-		std::string input1 = scenePath + "debug/render" + stateId + "_Presegment.ply";
+		std::string input1 = scenePath + "debug_search/render" + stateId + "_Presegment.ply";
 		pcl::io::savePLYFile(input1, *unexplainedSegment);
 		#endif
 
@@ -164,18 +164,27 @@ namespace uct_state{
 
 			kdtree.setInputCloud (explainedPts);
 
+			pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+			pcl::ExtractIndices<pcl::PointXYZ> extract;
+
 			for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
 				std::vector<int> pointIdxRadiusSearch;
 	  			std::vector<float> pointRadiusSquaredDistance;
-	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.005, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
-	  				unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
-	  				unexplainedSegment->width--;
+	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
+	  				// unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
+	  				// unexplainedSegment->width--;
+	  				inliers->indices.push_back(ii);
 	  			}
 			}
+			extract.setInputCloud (unexplainedSegment);
+		    extract.setIndices (inliers);
+		    extract.setNegative (true);
+		    extract.filter (*unexplainedSegment);
+
 		}
 
 		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug/render" + stateId + "_Postsegment.ply";
+		std::string input2 = scenePath + "debug_search/render" + stateId + "_Postsegment.ply";
 		pcl::io::savePLYFile(input2, *unexplainedSegment);
 		#endif
 
@@ -188,17 +197,19 @@ namespace uct_state{
 		#ifdef DBG_ICP
 		std::cout<< "size of cloud: "<<abs(numPoints)<<std::endl;
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform.inverse().eval());
-		std::string input3 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		std::string input3 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
 		tricp.align(*unexplainedSegment, abs(numPoints), tform);
 
+		
+
 		tform = tform.inverse().eval();
 
 		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input4 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
+		std::string input4 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input4, *transformedCloud);
 		#endif
 
@@ -230,7 +241,7 @@ namespace uct_state{
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_in;
-		std::string path_in = scenePath + "debug/render" + stateId + "_in.txt";
+		std::string path_in = scenePath + "debug_search/render" + stateId + "_in.txt";
 		cfg_in.open (path_in.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_in;
 		for(int ii=0; ii<numObjects; ii++){
@@ -247,7 +258,7 @@ namespace uct_state{
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_out;
-		std::string path_out = scenePath + "debug/render" + stateId + "_out.txt";
+		std::string path_out = scenePath + "debug_search/render" + stateId + "_out.txt";
 		cfg_out.open (path_out.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_out;
 		for(int ii=0; ii<numObjects; ii++){
@@ -279,6 +290,9 @@ namespace uct_state{
 		float bestVal = 0;
 
 		for(int ii=0; ii<numChildren; ii++){
+			std::cout << "UCTState::getBestChild:: childIdx: " << ii << " hval: " << children[ii]->hval 
+				<< " numExpansions: " << children[ii]->numExpansions << std::endl;
+				
 			float tmpVal = (children[ii]->hval/children[ii]->numExpansions) + alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
 			if (tmpVal > bestVal){
 				bestVal = tmpVal;
@@ -286,6 +300,7 @@ namespace uct_state{
 			}
 		}
 
+		std::cout << "UCTState::getBestChild:: bestChildIdx: " << bestChildIdx << " bestVal: " << bestVal << std::endl;
 		return children[bestChildIdx];
 	}
 
@@ -296,6 +311,7 @@ namespace uct_state{
 		for(int ii=0; ii<numChildren; ii++)
 			if(isExpanded[ii] == 0)return false;
 
+		std::cout << "UCTState::isFullyExpanded" << std::endl;
 		return true;
 	}
 

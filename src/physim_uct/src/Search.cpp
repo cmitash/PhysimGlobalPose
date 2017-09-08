@@ -53,7 +53,8 @@ namespace search{
 
 		expState->performTrICP(scenePath, trimICPthreshold);
 		expState->correctPhysics(pSim, camPose, scenePath);
-		expState->performTrICP(scenePath, trimICPthreshold/2);
+		// expState->performTrICP(scenePath, trimICPthreshold/2);
+		// expState->correctPhysics(pSim, camPose, scenePath);
 
 		expansionTime += (float( clock () - exp_begin_time ) /  CLOCKS_PER_SEC);
 
@@ -77,10 +78,10 @@ namespace search{
 			      Eigen::Matrix4f tform;
 			      utilities::convertToMatrix(bestState->objects[ii].second, tform);
 			      utilities::convertToWorld(tform, camPose);
-			      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "after_search");
+			      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "debug_search/after_search");
 
 			      ofstream pFile;
-			      pFile.open ((scenePath + "debug/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 				  pFile << (float( clock () - search_begin_time ) /  CLOCKS_PER_SEC) << std::endl;
 				  pFile.close();
 			    }

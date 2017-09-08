@@ -5,13 +5,10 @@ bool operator<(const uct_state::UCTState& lhs, const uct_state::UCTState& rhs) {
 }
 
 namespace uct_search{
-	int numExpansions;
-	int numRenders;
-	float expansionTime;
-	float renderTime;
 	clock_t search_begin_time;
 	float tableHeight = 0.545;
 	float trimICPthreshold = 0.9;
+	int maxSearchTime = 60;
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
@@ -19,7 +16,9 @@ namespace uct_search{
 	UCTSearch::UCTSearch(std::vector<apc_objects::APCObjects*> objOrder, 
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
 					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, std::vector<float> cutOffScore){
-		rootState = new uct_state::UCTState(0, unconditionedHypothesis[1], NULL);
+
+		int numChildNodesRoot = unconditionedHypothesis[0].size();
+		rootState = new uct_state::UCTState(0, numChildNodesRoot, NULL);
 		rootState->updateStateId(0);
 
 		this->objOrder = objOrder;
@@ -58,19 +57,44 @@ namespace uct_search{
 
 	float UCTSearch::defaultPolicy(uct_state::UCTState *selState){
 		unsigned int maxDepth = objOrder.size();
-		uct_state::UCTState* tmpState = new uct_state::UCTState(selState->numObjects, unconditionedHypothesis[selState->numObjects], selState->parentState);
 
+		uct_state::UCTState* tmpState = new uct_state::UCTState(selState->numObjects, selState->numChildren, selState->parentState);
+		tmpState->copyParent(selState);
+		
 		while(tmpState->numObjects < maxDepth){
 			tmpState->numObjects++;
-			int randHypothesis = rand() % unconditionedHypothesis[tmpState->numObjects].size();
-			tmpState->updateNewObject(objOrder[tmpState->numObjects], unconditionedHypothesis[tmpState->numObjects][randHypothesis], maxDepth);
+			int randHypothesis = rand() % unconditionedHypothesis[tmpState->numObjects-1].size();
+
+			tmpState->updateStateId(randHypothesis);
+			tmpState->updateNewObject(objOrder[tmpState->numObjects-1], unconditionedHypothesis[tmpState->numObjects-1][randHypothesis], maxDepth);
 			tmpState->performTrICP(scenePath, 0.9);
 			tmpState->correctPhysics(pSim, camPose, scenePath);
 		}
 
+		std::cout << "UCTSearch::defaultPolicy:: Rendered Stateid: " << tmpState->stateId << std::endl;
+
 		cv::Mat depth_image_defPolicy;
 		tmpState->render(camPose, scenePath, depth_image_defPolicy);
 		tmpState->computeCost(depth_image_defPolicy, depthImage);
+
+		if(tmpState->score > bestScore){
+			bestState = tmpState;
+			bestScore = tmpState->score;
+
+			#ifdef DBG_SUPER4PCS
+			for(int ii=0; ii<objOrder.size();ii++){
+		      Eigen::Matrix4f tform;
+		      utilities::convertToMatrix(bestState->objects[ii].second, tform);
+		      utilities::convertToWorld(tform, camPose);
+		      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "debug_search/after_search");
+
+		      ofstream pFile;
+		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+			  pFile << (float( clock () - search_begin_time ) /  CLOCKS_PER_SEC) << std::endl;
+			  pFile.close();
+		    } 
+			#endif
+		}
 
 		return tmpState->score;
 	}
@@ -79,13 +103,24 @@ namespace uct_search{
 	*******************************************************************************************************/
 
 	uct_state::UCTState* UCTSearch::expand(uct_state::UCTState *currState){
+		std::cout << "UCTSearch::expand:: stateid: " << currState->stateId << std::endl;
+
 		unsigned int maxDepth = objOrder.size();
+
 		for(int ii=0; ii<currState->numChildren; ii++){
 			if(currState->isExpanded[ii] == 0){
-				uct_state::UCTState* childState = new uct_state::UCTState(currState->numObjects+1, unconditionedHypothesis[currState->numObjects+1], currState);
+				currState->isExpanded[ii] = 1;
+
+				int numChildNodesForChildNode = 0;
+				if((currState->numObjects + 1) < maxDepth)
+					numChildNodesForChildNode = unconditionedHypothesis[currState->numObjects+1].size();
+
+				uct_state::UCTState* childState = new uct_state::UCTState(currState->numObjects+1, numChildNodesForChildNode, currState);
 				childState->copyParent(currState);
 				childState->updateStateId(ii);
 				childState->updateNewObject(objOrder[currState->numObjects], unconditionedHypothesis[currState->numObjects][ii], maxDepth);
+				childState->performTrICP(scenePath, 0.9);
+				childState->correctPhysics(pSim, camPose, scenePath);
 				currState->children.push_back(childState);
 				return childState;
 			}
@@ -99,6 +134,8 @@ namespace uct_search{
 	/*******************************************************************************************************/
 
 	uct_state::UCTState* UCTSearch::treePolicy(uct_state::UCTState *currState){
+
+		std::cout << "UCTSearch::treePolicy:: stateid: " << currState->stateId << std::endl;
 		unsigned int maxDepth = objOrder.size();
 
 		while(currState->numObjects < maxDepth){
@@ -116,24 +153,24 @@ namespace uct_search{
 	void UCTSearch::performSearch(){
 		const clock_t begin_time = clock();
 		
-		numExpansions = 0;
-		numRenders = 0;
-		expansionTime = 0;
-		renderTime = 0;
-
 		while(1){
 
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600)
+			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > maxSearchTime)
 				break;
 
+			std::cout << "*****UCTSearch::performSearch::Begin()*****" << std::endl;
 			uct_state::UCTState *selState = treePolicy(rootState);
 			float reward = defaultPolicy(selState);
 			backupReward(selState, reward);
+			std::cout << "*****UCTSearch::performSearch::End()*****" << std::endl;
+			std::cout << std::endl;
 		}
 
-		std::cout<<"total number of state expansions: " << numExpansions <<std::endl;
-		std::cout<<"mean expansion time: " << float(expansionTime/numExpansions) <<std::endl;
-		std::cout<<"mean render time: " << float(renderTime/numRenders) <<std::endl;
+		// unsigned int maxDepth = objOrder.size();
+		// while(bestState->numObjects < maxDepth){
+		// 	bestState = bestState->getBestChild();
+		// 	std::cout << "UCTSearch::performSearch:: stateId: " << bestState->stateId << std::endl;
+		// }
 	}
 
 	/********************************* end of functions ****************************************************

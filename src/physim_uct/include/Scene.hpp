@@ -14,21 +14,31 @@ namespace scene{
 			void get3DSegments();
 			void removeTable();
 			void getOrder();
+			void readHypothesis();
 
-			void getHypothesis(apc_objects::APCObjects* obj, PointCloud::Ptr pclSegment, PointCloud::Ptr pclModel);
+			void kernelKMeans(cv::Mat &rotPoints, cv::Mat &rotScores, Eigen::Vector3f symInfo, cv::Mat &rotCenters,
+				cv::Mat &rotCenterScores);
 
-			void clusterPoseSet(cv::Mat points, cv::Mat &clusterIndices, cv::Mat &clusterCenters, apc_objects::APCObjects* obj,
-									 std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose);
+			void performKernelKMeansRotation(std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &transScores, 
+				cv::Mat& transCenters, apc_objects::APCObjects* obj, cv::Mat &clusterReps, cv::Mat &allClusterScores);
 
-			void clusterTransPoseSet(cv::Mat points, cv::Mat scores, std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &,
-										 cv::Mat& transCenters, apc_objects::APCObjects* obj);
+			void performKMeansTranslation(cv::Mat points, cv::Mat scores, std::vector<cv::Mat> &transClusters, 
+				std::vector<cv::Mat> &scoreTrans, cv::Mat& transCenters, apc_objects::APCObjects* obj);
 
-			void clusterRotWithinTrans(std::vector<cv::Mat> &transClusters, std::vector<cv::Mat> &, cv::Mat& transCenters,
-											apc_objects::APCObjects* obj, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose);
+			void performKMeans(cv::Mat points, cv::Mat &clusterIndices, cv::Mat &clusterCenters, 
+				apc_objects::APCObjects* obj, std::vector< std::pair <Eigen::Isometry3d, float> >& subsetPose);
 
-			void kernelKMeans(cv::Mat &rotPts,cv::Mat &rotCenters, Eigen::Vector3f symInfo);
+			void getHypothesis(apc_objects::APCObjects* obj, std::pair <Eigen::Isometry3d, float> &bestLCPPose, 
+				std::vector< std::pair <Eigen::Isometry3d, float> > &allSuperPCSposes);
 
-			void getUnconditionedHypothesis();
+			void descretizeHypothesisSet(apc_objects::APCObjects* obj, float bestscore, std::map<std::string, float> &poseMap, 
+				std::vector< std::pair <Eigen::Isometry3d, float> > &allSuperPCSposes);
+
+			void computeHypothesisSet();
+
+			void clusterHypothesisSet(apc_objects::APCObjects* obj, std::map<std::string, float> &poseMap,
+				std::vector< std::pair <Eigen::Isometry3d, float> > &clusteredPoses);
+
 			
 			int numObjects;
 			std::string scenePath;

@@ -1,14 +1,16 @@
 #include <APCObjects.hpp>
 #include <Scene.hpp>
 #include <Search.hpp>
+#include <UCTSearch.hpp>
 #include <Evaluate.hpp>
 
 #include <physim_uct/EstimateObjectPose.h>
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-bool performSearch = 1;
-bool evalPoseDataset17 = 0;
+int generateNewHypothesis = 0;
+int performSearch = 0;
+int evalPoseDataset17 = 1;
 int evalDatasetSize = 30; 
 
 // Global definations
@@ -19,14 +21,71 @@ std::map<std::string, Eigen::Vector3f> symMap;
 // depth_sim package
 void initScene (int argc, char **argv);
 
+/********************************* function: callHeuristicSearch ****************************************
+********************************************************************************************************/
+
+static void callHeuristicSearch(scene::Scene *currScene){
+  int poseWritten = 0;
+  for(int ii=0;ii<currScene->independentTrees.size();ii++){
+    
+    std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
+    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+      hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
+
+    search::Search *HSearch = new search::Search(currScene->independentTrees[ii], hypothesis,
+                                currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
+    HSearch->heuristicSearch();
+
+    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+      currScene->finalState->objects[poseWritten + jj] = HSearch->bestState->objects[jj];
+
+    poseWritten += currScene->independentTrees[ii].size();
+  }
+
+  cv::Mat depth_image_final;
+  currScene->finalState->updateStateId(-2);
+  currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
+}
+
+/********************************* function: callUCTSearch **********************************************
+********************************************************************************************************/
+
+static void callUCTSearch(scene::Scene *currScene){
+  int poseWritten = 0;
+  for(int ii=0;ii<currScene->independentTrees.size();ii++){
+    
+    std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
+    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+      hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
+      uct_search::UCTSearch *UCTSearch = new uct_search::UCTSearch(currScene->independentTrees[ii], hypothesis,
+                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
+      UCTSearch->performSearch();
+
+      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++){
+        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
+      }
+
+      poseWritten += currScene->independentTrees[ii].size();
+  }
+
+  cv::Mat depth_image_final;
+  currScene->finalState->updateStateId(-2);
+  currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
+}
+
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
 
 bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
                   physim_uct::EstimateObjectPose::Response &res){
   std::string scenePath(req.SceneFiles);
-  system(("rm -rf " + scenePath + "debug").c_str());
-  system(("mkdir " + scenePath + "debug").c_str());
+  system(("rm -rf " + scenePath + "debug_search").c_str());
+  system(("mkdir " + scenePath + "debug_search").c_str());
+
+  if(generateNewHypothesis == 1){
+    system(("rm -rf " + scenePath + "debug_super4PCS").c_str());
+    system(("mkdir " + scenePath + "debug_super4PCS").c_str());
+  }
 
   scene::Scene *currScene = new scene::Scene(scenePath);
   std::cout<<"number of objects: " << currScene->numObjects << std::endl
@@ -38,31 +97,17 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   currScene->performRCNNDetection();
   currScene->get3DSegments();
   currScene->getOrder();
-  currScene->getUnconditionedHypothesis();
 
-  // perform search if the flag is set
-  if(performSearch){
-    int poseWritten = 0;
-    for(int ii=0;ii<currScene->independentTrees.size();ii++){
-      
-      std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
-      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
-        hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
+  if(generateNewHypothesis == 1)
+    currScene->computeHypothesisSet();
+  else
+    currScene->readHypothesis();
 
-      search::Search *UCTSearch = new search::Search(currScene->independentTrees[ii], hypothesis,
-                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
-      UCTSearch->heuristicSearch();
-
-      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
-        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
-
-      poseWritten += currScene->independentTrees[ii].size();
-    }
-
-    cv::Mat depth_image_final;
-    currScene->finalState->updateStateId(-2);
-    currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
-  }
+  // call search routine
+  if(performSearch == 1)
+    callHeuristicSearch(currScene);
+  else if(performSearch == 2)
+    callUCTSearch(currScene);
 
   // copy final results to rosmessage
   for(int ii=0; ii<currScene->finalState->numObjects; ii++){
@@ -74,7 +119,7 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     PointCloud::Ptr transformedCloud (new PointCloud);
     utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
     pcl::transformPointCloud(*currScene->finalState->objects[ii].first->pclModel, *transformedCloud, tform);
-    std::string input1 = scenePath + "debug/result_" + currScene->finalState->objects[ii].first->objName + ".ply";
+    std::string input1 = scenePath + "debug_search/result_" + currScene->finalState->objects[ii].first->objName + ".ply";
     pcl::io::savePLYFile(input1, *transformedCloud);
     #endif
 
@@ -101,6 +146,12 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
 
 void evaluatePoseDataset17(){
   evaluate::Evaluate *pEval = new evaluate::Evaluate();
+  system("rm /home/chaitanya/PoseDataset17/result.txt");
+  system("rm /home/chaitanya/PoseDataset17/resultAllHypo.txt");
+  system("rm /home/chaitanya/PoseDataset17/resultClusterHypo.txt");
+  system("rm /home/chaitanya/PoseDataset17/resultSearch.txt");
+  system("rm /home/chaitanya/PoseDataset17/resultSuper4pcs.txt");
+  system("rm /home/chaitanya/PoseDataset17/resultSuper4pcsICP.txt");
 
   for(int i=1; i<=evalDatasetSize; i++){
     char buf[50];
@@ -185,7 +236,7 @@ int main(int argc, char **argv){
   }
   loadObjects(Objects);
 
-  if(evalPoseDataset17){
+  if(evalPoseDataset17 == 1){
     evaluatePoseDataset17();
     exit(-1);
   }

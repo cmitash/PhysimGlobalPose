@@ -58,8 +58,8 @@ extern std::string env_p;
 extern std::map<std::string, Eigen::Vector3f> symMap; // FIX ME
 
 #define DBG_SUPER4PCS
-#define DBG_ICP
-#define DBG_PHYSICS
+// #define DBG_ICP
+// #define DBG_PHYSICS
 #define DGB_RESULT
 
 // Declaration for common utility functions
@@ -86,6 +86,7 @@ namespace utilities{
 	void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q);
 	Eigen::Vector3f rotationMatrixToEulerAngles(Eigen::Matrix3f R);
 	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename);
+	void writeScoreToFile(float score, std::string objName, std::string scenePath, std::string filename);
 }
 
 #endif

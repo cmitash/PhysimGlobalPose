@@ -51,7 +51,7 @@ namespace state{
   			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
   			addObjects(mesh_out);
 		}
-		renderDepth(cam_pose, depth_image, scenePath + "debug/render" + stateId + ".png");
+		renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
 	}
 
 	/********************************* function: updateNewObject *******************************************
@@ -120,11 +120,11 @@ namespace state{
 		icp.align(icptransformedCloud);
 
 		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug/render" + stateId + "_segment.ply";
+		std::string input2 = scenePath + "debug_search/render" + stateId + "_segment.ply";
 		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
 
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input1 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		std::string input1 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input1, *transformedCloud);
 		#endif
 
@@ -132,7 +132,7 @@ namespace state{
 		
 		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
+		std::string input3 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
@@ -143,6 +143,7 @@ namespace state{
 	*******************************************************************************************************/
 
 	void State::performTrICP(std::string scenePath, float trimPercentage){
+		std::cout << "State::performTrICP:: " << stateId << std::endl;
 		if(!numObjects)
 			return;
 		PointCloud::Ptr transformedCloud (new PointCloud);
@@ -160,7 +161,7 @@ namespace state{
 		copyPointCloud(*objects[numObjects-1].first->pclSegment, *unexplainedSegment);
 		
 		#ifdef DBG_ICP
-		std::string input1 = scenePath + "debug/render" + stateId + "_Presegment.ply";
+		std::string input1 = scenePath + "debug_search/render" + stateId + "_Presegment.ply";
 		pcl::io::savePLYFile(input1, *unexplainedSegment);
 		#endif
 
@@ -181,8 +182,6 @@ namespace state{
 				std::vector<int> pointIdxRadiusSearch;
 	  			std::vector<float> pointRadiusSquaredDistance;
 	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
-	  				// unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
-	  				// unexplainedSegment->width--;
 	  				inliers->indices.push_back(ii);
 	  			}
 			}
@@ -194,7 +193,7 @@ namespace state{
 		}
 
 		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug/render" + stateId + "_Postsegment.ply";
+		std::string input2 = scenePath + "debug_search/render" + stateId + "_Postsegment.ply";
 		pcl::io::savePLYFile(input2, *unexplainedSegment);
 		#endif
 
@@ -207,19 +206,17 @@ namespace state{
 		#ifdef DBG_ICP
 		std::cout<< "size of cloud: "<<abs(numPoints)<<std::endl;
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform.inverse().eval());
-		std::string input3 = scenePath + "debug/render" + stateId + "_Premodel.ply";
+		std::string input3 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
 		tricp.align(*unexplainedSegment, abs(numPoints), tform);
 
-		
-
 		tform = tform.inverse().eval();
 
 		#ifdef DBG_ICP
 		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input4 = scenePath + "debug/render" + stateId + "_Postmodel.ply";
+		std::string input4 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input4, *transformedCloud);
 		#endif
 
@@ -251,7 +248,7 @@ namespace state{
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_in;
-		std::string path_in = scenePath + "debug/render" + stateId + "_in.txt";
+		std::string path_in = scenePath + "debug_search/render" + stateId + "_in.txt";
 		cfg_in.open (path_in.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_in;
 		for(int ii=0; ii<numObjects; ii++){
@@ -268,7 +265,7 @@ namespace state{
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_out;
-		std::string path_out = scenePath + "debug/render" + stateId + "_out.txt";
+		std::string path_out = scenePath + "debug_search/render" + stateId + "_out.txt";
 		cfg_out.open (path_out.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_out;
 		for(int ii=0; ii<numObjects; ii++){
