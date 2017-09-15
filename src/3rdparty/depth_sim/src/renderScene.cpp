@@ -68,7 +68,7 @@ void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path){
   depth_image.convertTo(depth_image, CV_32FC1);
   depth_image = depth_image/1000;
   depth_image.setTo(0,depth_image>1);
-  writeDepthImage(depth_image, path);
+  // writeDepthImage(depth_image, path);
 }
 
 void initScene (int argc, char **argv)

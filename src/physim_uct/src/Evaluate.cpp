@@ -24,10 +24,6 @@ namespace evaluate{
 	transErr_allhypothesisMintrans(DATASET_SIZE, INT_MAX),
 	emdErr_allhypothesisMintrans(DATASET_SIZE, INT_MAX),
 
-	rotErr_allhypothesisMinEmd(DATASET_SIZE, INT_MAX),
-	transErr_allhypothesisMinEmd(DATASET_SIZE, INT_MAX),
-	emdErr_allhypothesisMinEmd(DATASET_SIZE, INT_MAX),
-
 	rotErr_clusterhypothesisMinRot(DATASET_SIZE, INT_MAX),
 	transErr_clusterhypothesisMinRot(DATASET_SIZE, INT_MAX),
 	emdErr_clusterhypothesisMinRot(DATASET_SIZE, INT_MAX),
@@ -42,13 +38,19 @@ namespace evaluate{
 
 	rotErr_searchFinal(DATASET_SIZE), 
 	transErr_searchFinal(DATASET_SIZE),
-	emdErr_searchFinal(DATASET_SIZE){}
+	emdErr_searchFinal(DATASET_SIZE),
+
+	rotErr_PCA(DATASET_SIZE),
+	transErr_PCA(DATASET_SIZE),
+	emdErr_PCA(DATASET_SIZE){}
 
 /********************************* function: getRangeEMDComputation ************************************
 *******************************************************************************************************/
 
 static void getRangeEMDComputation(PointCloud::Ptr pclSegment, Eigen::Matrix4f camPose, std::pair<float, float> &xrange, 
 									std::pair<float, float> &yrange, std::pair<float, float> &zrange){
+	std:: cout << "Evaluate::getRangeEMDComputation" << std::endl;
+
 	float x_min = INT_MAX, x_max = -INT_MAX;
 	float y_min = INT_MAX, y_max = -INT_MAX;
 	float z_min = INT_MAX, z_max = -INT_MAX;
@@ -73,6 +75,8 @@ static void getRangeEMDComputation(PointCloud::Ptr pclSegment, Eigen::Matrix4f c
 /********************************* function: getSuper4pcsError *****************************************
 *******************************************************************************************************/
 void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
+	std:: cout << "Evaluate::getSuper4pcsError" << std::endl;
+
 	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
 		ifstream super4pcsFile;
 		Eigen::Matrix4f testPose;
@@ -94,7 +98,6 @@ void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 		rotErr_super4pcs[sceneIdx*3 + obIdx] = rotErr;
 		transErr_super4pcs[sceneIdx*3 + obIdx] = transErr;
 		emdErr_super4pcs[sceneIdx*3 + obIdx] = emdErr;
-
 		
 		ofstream resFile;
 		resFile.open ("/home/chaitanya/PoseDataset17/resultSuper4pcs.txt", std::ofstream::out|std::ofstream::app);
@@ -125,17 +128,20 @@ void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 /********************************* function: getSearchResults *****************************************
 *******************************************************************************************************/
 void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
+	std::cout << "Evaluate::getSearchResults" << std::endl;
+
 	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
 		ifstream super4pcsFile, timeFile;
-		Eigen::Matrix4f testPose;
+		Eigen::Matrix4f testPose, finalState;
 		float rotErr, transErr, emdErr=0;
 		float time;
+		unsigned int score;
+		std::string bestState;
 		std::pair<float, float> xrange, yrange, zrange;
 
 		testPose.setIdentity();
 		super4pcsFile.open((currScene->scenePath + "debug_search/after_search_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 		timeFile.open((currScene->scenePath + "debug_search/times_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
-		
 		
 		while(super4pcsFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
 					 >> testPose(1,0) >> testPose(1,1) >> testPose(1,2) >> testPose(1,3)
@@ -143,24 +149,66 @@ void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 			
 
 			utilities::getPoseError(testPose, groundTruth[obIdx].second, groundTruth[obIdx].first->symInfo, rotErr, transErr);
-
-			if(evalEMD){
-				getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-				utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
-			}
-			emdErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(emdErr, time));
-
-			timeFile >> time;
+			timeFile >> time >> score >> bestState;
 
 			rotErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(rotErr, time));
 			transErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(transErr, time));
 
 			ofstream plotFile;
 			plotFile.open((currScene->scenePath + "debug_search/plotData_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ofstream::out|std::ofstream::app);
-			plotFile << rotErr << " " << transErr << " " << emdErr << " " << time << std::endl;
+			plotFile << rotErr << " " << transErr << " " << emdErr << " " << time << " " << score << std::endl;
 			plotFile.close();
 		}
+
+		if(evalEMD){
+			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+		}
+		emdErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(emdErr, time));
+
 		super4pcsFile.close();
+		timeFile.close();
+	}
+
+}
+
+/********************************* function: getPCAError ***********************************************
+*******************************************************************************************************/
+void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
+	std::cout << "Evaluate::getPCAError" << std::endl;
+
+	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+		ifstream pcaFile;
+		Eigen::Matrix4f testPose;
+		float rotErr, transErr, emdErr=0;
+		std::string bestState;
+		std::pair<float, float> xrange, yrange, zrange;
+
+		testPose.setIdentity();
+		pcaFile.open((currScene->scenePath + "RCNN_PCA_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		
+		while(pcaFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
+					 >> testPose(1,0) >> testPose(1,1) >> testPose(1,2) >> testPose(1,3)
+					 >> testPose(2,0) >> testPose(2,1) >> testPose(2,2) >> testPose(2,3)){
+			
+
+			utilities::getPoseError(testPose, groundTruth[obIdx].second, groundTruth[obIdx].first->symInfo, rotErr, transErr);
+			rotErr_PCA[sceneIdx*3 + obIdx] = rotErr;
+			transErr_PCA[sceneIdx*3 + obIdx] = transErr;
+
+			ofstream plotFile;
+			plotFile.open((currScene->scenePath + "PCAErr_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ofstream::out);
+			plotFile << rotErr << " " << transErr << " " << emdErr << std::endl;
+			plotFile.close();
+		}
+
+		if(evalEMD){
+			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+		}
+		emdErr_PCA[sceneIdx*3 + obIdx] = emdErr;
+
+		pcaFile.close();
 	}
 
 }
@@ -168,9 +216,11 @@ void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 /********************************* function: getAllHypoError *******************************************
 *******************************************************************************************************/
 void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
+	std::cout << "Evaluate::getAllHypoError" << std::endl;
+
 	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
 		ifstream super4pcsFile;
-		Eigen::Matrix4f testPose;
+		Eigen::Matrix4f testPose, bestRotPose, bestTransPose;
 		float rotErr, transErr, emdErr = 0;
 		std::pair<float, float> xrange, yrange, zrange;
 
@@ -184,31 +234,28 @@ void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
 			
 			utilities::getPoseError(testPose, groundTruth[obIdx].second, groundTruth[obIdx].first->symInfo, rotErr, transErr);
 			
-			if(evalEMD){
-				getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-				utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
-			}
-
 			std::cout << "obj id: " << sceneIdx*3 + obIdx << " count: " << count << std::endl;
 			count++;
 
 			if(rotErr < rotErr_allhypothesisMinRot[sceneIdx*3 + obIdx]){
 				rotErr_allhypothesisMinRot[sceneIdx*3 + obIdx] = rotErr;
 				transErr_allhypothesisMinRot[sceneIdx*3 + obIdx] = transErr;
-				emdErr_allhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
+				bestRotPose = testPose;
 			}
 
 			if(transErr < transErr_allhypothesisMintrans[sceneIdx*3 + obIdx]){
 				rotErr_allhypothesisMintrans[sceneIdx*3 + obIdx] = rotErr;
 				transErr_allhypothesisMintrans[sceneIdx*3 + obIdx] = transErr;
-				emdErr_allhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
+				bestTransPose = testPose;
 			}
+		}
 
-			if(emdErr < emdErr_allhypothesisMinEmd[sceneIdx*3 + obIdx]){
-				rotErr_allhypothesisMinEmd[sceneIdx*3 + obIdx] = rotErr;
-				transErr_allhypothesisMinEmd[sceneIdx*3 + obIdx] = transErr;
-				emdErr_allhypothesisMinEmd[sceneIdx*3 + obIdx] = emdErr;
-			}
+		if(evalEMD){
+			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			emdErr_allhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
+			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			emdErr_allhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
 		}
 
 		ofstream resFile;
@@ -224,9 +271,11 @@ void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
 /********************************* function: getClusterHypoError ***************************************
 *******************************************************************************************************/
 void Evaluate::getClusterHypoError(scene::Scene *currScene, int sceneIdx){
+	std::cout << "Evaluate::getClusterHypoError" << std::endl;
+
 	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
 		ifstream super4pcsFile;
-		Eigen::Matrix4f testPose;
+		Eigen::Matrix4f testPose, bestRotPose, bestTransPose;
 		float rotErr, transErr, emdErr=0;
 		std::pair<float, float> xrange, yrange, zrange;
 
@@ -239,28 +288,25 @@ void Evaluate::getClusterHypoError(scene::Scene *currScene, int sceneIdx){
 			
 			utilities::getPoseError(testPose, groundTruth[obIdx].second, groundTruth[obIdx].first->symInfo, rotErr, transErr);
 			
-			if(evalEMD){
-				getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-				utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
-			}
 			if(rotErr < rotErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx]){
 				rotErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx] = rotErr;
 				transErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx] = transErr;
-				emdErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
+				bestRotPose = testPose;
 			}
 
 			if(transErr < transErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx]){
 				rotErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx] = rotErr;
 				transErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx] = transErr;
-				emdErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
+				bestTransPose = testPose;
 			}
+		}
 
-			if(emdErr < emdErr_clusterhypothesisMinEmd[sceneIdx*3 + obIdx]){
-				rotErr_clusterhypothesisMinEmd[sceneIdx*3 + obIdx] = rotErr;
-				transErr_clusterhypothesisMinEmd[sceneIdx*3 + obIdx] = transErr;
-				emdErr_clusterhypothesisMinEmd[sceneIdx*3 + obIdx] = emdErr;
-			}
-
+		if(evalEMD){
+			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			emdErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
+			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			emdErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
 		}
 
 		ofstream resFile;
@@ -277,6 +323,8 @@ void Evaluate::getClusterHypoError(scene::Scene *currScene, int sceneIdx){
 *******************************************************************************************************/
 
 void Evaluate::readGroundTruth(scene::Scene *currScene){
+	std::cout << "Evaluate::readGroundTruth" << std::endl;
+
 	groundTruth.clear();
 	for(int i=0;i<currScene->objOrder.size();i++){
 		ifstream gtPoseFile;
@@ -295,6 +343,8 @@ void Evaluate::readGroundTruth(scene::Scene *currScene){
 *******************************************************************************************************/
 
 void Evaluate::writeResults(){
+	std::cout << "Evaluate::writeResults" << std::endl;
+
 	ofstream resFile;
 
 	float meanrotErr_super4pcs = 0;
@@ -313,10 +363,6 @@ void Evaluate::writeResults(){
 	float meantransErr_allhypothesisMintrans = 0;
 	float meanemdErr_allhypothesisMintrans = 0;
 
-	float meanrotErr_allhypothesisMinEmd = 0;
-	float meantransErr_allhypothesisMinEmd = 0;
-	float meanemdErr_allhypothesisMinEmd = 0;
-
 	float meanrotErr_clusterhypothesisMinRot = 0;
 	float meantransErr_clusterhypothesisMinRot = 0;
 	float meanemdErr_clusterhypothesisMinRot = 0;
@@ -325,13 +371,13 @@ void Evaluate::writeResults(){
 	float meantransErr_clusterhypothesisMintrans = 0;
 	float meanemdErr_clusterhypothesisMintrans = 0;
 
-	float meanrotErr_clusterhypothesisMinEmd = 0;
-	float meantransErr_clusterhypothesisMinEmd = 0;
-	float meanemdErr_clusterhypothesisMinEmd = 0;
-
 	float meanrotErr_searchFinal = 0;
 	float meantransErr_searchFinal = 0;
 	float meanemdErr_searchFinal = 0;
+
+	float meanrotErr_PCA = 0;
+	float meantransErr_PCA = 0;
+	float meanemdErr_PCA = 0;
 
 	resFile.open ("/home/chaitanya/PoseDataset17/result.txt", std::ofstream::out);
 
@@ -339,6 +385,10 @@ void Evaluate::writeResults(){
 		meanrotErr_super4pcs += rotErr_super4pcs[i];
 		meantransErr_super4pcs += transErr_super4pcs[i];
 		meanemdErr_super4pcs += emdErr_super4pcs[i];
+
+		meanrotErr_PCA += rotErr_PCA[i];
+		meantransErr_PCA += transErr_PCA[i];
+		meanemdErr_PCA += emdErr_PCA[i];
 
 		meanrotErr_super4pcsICP += rotErr_super4pcsICP[i];
 		meantransErr_super4pcsICP += transErr_super4pcsICP[i];
@@ -352,10 +402,6 @@ void Evaluate::writeResults(){
 		meantransErr_allhypothesisMintrans += transErr_allhypothesisMintrans[i];
 		meanemdErr_allhypothesisMintrans += emdErr_allhypothesisMintrans[i];
 
-		meanrotErr_allhypothesisMinEmd += rotErr_allhypothesisMinEmd[i];
-		meantransErr_allhypothesisMinEmd += transErr_allhypothesisMinEmd[i];
-		meanemdErr_allhypothesisMinEmd += emdErr_allhypothesisMinEmd[i];
-
 		meanrotErr_clusterhypothesisMinRot += rotErr_clusterhypothesisMinRot[i];
 		meantransErr_clusterhypothesisMinRot += transErr_clusterhypothesisMinRot[i];
 		meanemdErr_clusterhypothesisMinRot += emdErr_clusterhypothesisMinRot[i];
@@ -363,10 +409,6 @@ void Evaluate::writeResults(){
 		meanrotErr_clusterhypothesisMintrans += rotErr_clusterhypothesisMintrans[i];
 		meantransErr_clusterhypothesisMintrans += transErr_clusterhypothesisMintrans[i];
 		meanemdErr_clusterhypothesisMintrans += emdErr_clusterhypothesisMintrans[i];
-
-		meanrotErr_clusterhypothesisMinEmd += rotErr_clusterhypothesisMinEmd[i];
-		meantransErr_clusterhypothesisMinEmd += transErr_clusterhypothesisMinEmd[i];
-		meanemdErr_clusterhypothesisMinEmd += emdErr_clusterhypothesisMinEmd[i];
 
 		meanrotErr_searchFinal += rotErr_searchFinal[i][rotErr_searchFinal[i].size()-1].first;
 		meantransErr_searchFinal += transErr_searchFinal[i][transErr_searchFinal[i].size()-1].first;
@@ -396,10 +438,6 @@ void Evaluate::writeResults(){
 	meantransErr_allhypothesisMintrans /= DATASET_SIZE;
 	meanemdErr_allhypothesisMintrans /= DATASET_SIZE;
 
-	meanrotErr_allhypothesisMinEmd /= DATASET_SIZE;
-	meantransErr_allhypothesisMinEmd /= DATASET_SIZE;
-	meanemdErr_allhypothesisMinEmd /= DATASET_SIZE;
-
 	meanrotErr_clusterhypothesisMinRot /= DATASET_SIZE;
 	meantransErr_clusterhypothesisMinRot /= DATASET_SIZE;
 	meanemdErr_clusterhypothesisMinRot /= DATASET_SIZE;
@@ -408,13 +446,13 @@ void Evaluate::writeResults(){
 	meantransErr_clusterhypothesisMintrans /= DATASET_SIZE;
 	meanemdErr_clusterhypothesisMintrans /= DATASET_SIZE;
 
-	meanrotErr_clusterhypothesisMinEmd /= DATASET_SIZE;
-	meantransErr_clusterhypothesisMinEmd /= DATASET_SIZE;
-	meanemdErr_clusterhypothesisMinEmd /= DATASET_SIZE;
-
 	meanrotErr_searchFinal /= DATASET_SIZE;
 	meantransErr_searchFinal /= DATASET_SIZE;
 	meanemdErr_searchFinal /= DATASET_SIZE;
+
+	meanrotErr_PCA /= DATASET_SIZE;
+	meantransErr_PCA /= DATASET_SIZE;
+	meanemdErr_PCA /= DATASET_SIZE;
 
 	resFile << "meanrotErr_super4pcs: " << meanrotErr_super4pcs << std::endl;
 	resFile << "meantransErr_super4pcs: " << meantransErr_super4pcs << std::endl;
@@ -436,11 +474,6 @@ void Evaluate::writeResults(){
 	resFile << "meanemdErr_allhypothesisMintrans: " << meanemdErr_allhypothesisMintrans << std::endl;
 	resFile << std::endl;
 
-	resFile << "meanrotErr_allhypothesisMinEmd: " << meanrotErr_allhypothesisMinEmd << std::endl;
-	resFile << "meantransErr_allhypothesisMinEmd: " << meantransErr_allhypothesisMinEmd << std::endl;
-	resFile << "meanemdErr_allhypothesisMinEmd: " << meanemdErr_allhypothesisMinEmd << std::endl;
-	resFile << std::endl;
-
 	resFile << "meanrotErr_clusterhypothesisMinRot: " << meanrotErr_clusterhypothesisMinRot << std::endl;
 	resFile << "meantransErr_clusterhypothesisMinRot: " << meantransErr_clusterhypothesisMinRot << std::endl;
 	resFile << "meanemdErr_clusterhypothesisMinRot: " << meanemdErr_clusterhypothesisMinRot << std::endl;
@@ -451,14 +484,15 @@ void Evaluate::writeResults(){
 	resFile << "meanemdErr_clusterhypothesisMintrans: " << meanemdErr_clusterhypothesisMintrans << std::endl;
 	resFile << std::endl;
 
-	resFile << "meanrotErr_clusterhypothesisMinEmd: " << meanrotErr_clusterhypothesisMinEmd << std::endl;
-	resFile << "meantransErr_clusterhypothesisMinEmd: " << meantransErr_clusterhypothesisMinEmd << std::endl;
-	resFile << "meanemdErr_clusterhypothesisMinEmd: " << meanemdErr_clusterhypothesisMinEmd << std::endl;
-	resFile << std::endl;
-
 	resFile << "meanrotErr_searchFinal: " << meanrotErr_searchFinal << std::endl;
 	resFile << "meantransErr_searchFinal: " << meantransErr_searchFinal << std::endl;
 	resFile << "meanemdErr_searchFinal: " << meanemdErr_searchFinal << std::endl;
+	resFile << std::endl;
+
+	resFile << "meanrotErr_PCA: " << meanrotErr_PCA << std::endl;
+	resFile << "meantransErr_PCA: " << meantransErr_PCA << std::endl;
+	resFile << "meanemdErr_PCA: " << meanemdErr_PCA << std::endl;
+	resFile << std::endl;
 
 	resFile.close();
 }

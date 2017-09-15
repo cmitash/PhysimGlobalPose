@@ -6,18 +6,20 @@ void clearScene();
 
 namespace uct_state{
 	float explanationThreshold = 0.005;
-	float alpha = 1000;
+	float alpha = 5000;
 
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	UCTState::UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent) : isExpanded(numChildNodes, 0){
+	UCTState::UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent) : isExpanded(numChildNodes, 0), 
+	hval(numChildNodes) {
 		this->numObjects = numObjects;
-		hval = 0;
+		qval = 0;
 		numExpansions = 0;
-		score = INT_MAX;
+		renderScore = INT_MAX;
 		numChildren = numChildNodes;
 		parentState = parent;
+		renderedImg = cv::Mat::zeros(480, 640, CV_32FC1);
 	}
 
 	/********************************* function: copyParent ************************************************
@@ -26,23 +28,41 @@ namespace uct_state{
 	void UCTState::copyParent(UCTState* copyFrom){
 		this->objects = copyFrom->objects;
 		this->stateId = copyFrom->stateId;
+		copyFrom->renderedImg.copyTo(this->renderedImg);
 	}
 
 	/********************************* function: render ****************************************************
 	*******************************************************************************************************/
 
-	void UCTState::render(Eigen::Matrix4f cam_pose, std::string scenePath, cv::Mat &depth_image){
+	void UCTState::render(Eigen::Matrix4f cam_pose, std::string scenePath){
+		std::cout << "State::render::StateId: " << stateId << std::endl;
+		cv::Mat depth_image;
+
+		// perform rendering for the last added object
 		clearScene();
-		for(int ii=0; ii<objects.size(); ii++){
-  			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[ii].first->objModel));
-  			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[ii].first->objModel));
-  			Eigen::Matrix4f transform;
-  			utilities::convertToMatrix(objects[ii].second, transform);
-  			utilities::convertToWorld(transform, cam_pose);
-  			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
-  			addObjects(mesh_out);
+		int finalObjectIdx = objects.size()-1;
+
+		if(finalObjectIdx >= 0) {
+			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
+			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
+			Eigen::Matrix4f transform;
+			utilities::convertToMatrix(objects[finalObjectIdx].second, transform);
+			utilities::convertToWorld(transform, cam_pose);
+			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
+			addObjects(mesh_out);
+			renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
+
+			// copy the rendering of the current object over parent state render
+			for(int u=0; u<renderedImg.rows; u++)
+				for(int v=0; v<renderedImg.cols; v++){
+					float depth_curr = depth_image.at<float>(u,v);
+					float depth_parent = renderedImg.at<float>(u,v);
+					if(depth_curr > 0 && (depth_parent == 0 || depth_curr < depth_parent))
+						renderedImg.at<float>(u,v) = depth_curr;
+				}
 		}
-		renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
+
+		utilities::writeDepthImage(renderedImg, scenePath + "debug_search/render" + stateId + ".png");
 	}
 
 	/********************************* function: updateNewObject *******************************************
@@ -64,7 +84,7 @@ namespace uct_state{
 	/********************************* function: computeCost ***********************************************
 	*******************************************************************************************************/
 
-	void UCTState::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
+	void UCTState::computeCost(cv::Mat obsImg){
 		float obScore = 0;
 		float renScore = 0;
 		float intScore = 0;
@@ -85,48 +105,8 @@ namespace uct_state{
 	            if(obVal > 0 && renVal > 0 && absDiff < explanationThreshold)intScore++;
 	        }
 	    }
-	    score = obScore + renScore - intScore;
-	    std::cout<<"UCTState::computeCost:: Score: "<<score<<std::endl;
-	}
-
-	/********************************* function: performICP ************************************************
-	*******************************************************************************************************/
-
-	void UCTState::performICP(std::string scenePath, float max_corr){
-		if(!numObjects)
-			return;
-		PointCloud::Ptr transformedCloud (new PointCloud);
-		PointCloud icptransformedCloud;
-		Eigen::Matrix4f tform;
-		utilities::convertToMatrix(objects[numObjects-1].second, tform);
-		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-
-		pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-		icp.setInputSource(transformedCloud);
-		icp.setInputTarget(objects[numObjects-1].first->pclSegment);
-		icp.setMaxCorrespondenceDistance (max_corr);
-		icp.setMaximumIterations (50);
-		icp.setTransformationEpsilon (1e-8);
-		icp.align(icptransformedCloud);
-
-		#ifdef DBG_ICP
-		std::string input2 = scenePath + "debug_search/render" + stateId + "_segment.ply";
-		pcl::io::savePLYFile(input2, *objects[numObjects-1].first->pclSegment);
-
-		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input1 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
-		pcl::io::savePLYFile(input1, *transformedCloud);
-		#endif
-
-		tform = icp.getFinalTransformation()*tform;
-		
-		#ifdef DBG_ICP
-		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
-		std::string input3 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
-		pcl::io::savePLYFile(input3, *transformedCloud);
-		#endif
-
-		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
+	    renderScore = obScore + renScore - intScore;
+	    std::cout << "UCTState::computeCost:: Score: "<< renderScore << std::endl;
 	}
 
 	/********************************* function: performTrICP **********************************************
@@ -171,8 +151,6 @@ namespace uct_state{
 				std::vector<int> pointIdxRadiusSearch;
 	  			std::vector<float> pointRadiusSquaredDistance;
 	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
-	  				// unexplainedSegment->points.erase(unexplainedSegment->points.begin() + ii);
-	  				// unexplainedSegment->width--;
 	  				inliers->indices.push_back(ii);
 	  			}
 			}
@@ -202,9 +180,6 @@ namespace uct_state{
 		#endif
 
 		tricp.align(*unexplainedSegment, abs(numPoints), tform);
-
-		
-
 		tform = tform.inverse().eval();
 
 		#ifdef DBG_ICP
@@ -290,17 +265,17 @@ namespace uct_state{
 		float bestVal = 0;
 
 		for(int ii=0; ii<numChildren; ii++){
-			std::cout << "UCTState::getBestChild:: childIdx: " << ii << " hval: " << children[ii]->hval 
-				<< " numExpansions: " << children[ii]->numExpansions << std::endl;
+			// std::cout << "UCTState::getBestChild:: childIdx: " << ii << " qval: " << children[ii]->qval 
+			// 	<< " numExpansions: " << children[ii]->numExpansions << std::endl;
 				
-			float tmpVal = (children[ii]->hval/children[ii]->numExpansions) + alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
+			float tmpVal = (children[ii]->qval/children[ii]->numExpansions) + alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
 			if (tmpVal > bestVal){
 				bestVal = tmpVal;
 				bestChildIdx = ii;
 			}
 		}
 
-		std::cout << "UCTState::getBestChild:: bestChildIdx: " << bestChildIdx << " bestVal: " << bestVal << std::endl;
+		std::cout << "UCTState::getBestChild:: state: " << stateId << ", bestChildIdx: " << bestChildIdx << ", bestVal: " << bestVal << std::endl;
 		return children[bestChildIdx];
 	}
 
@@ -313,6 +288,19 @@ namespace uct_state{
 
 		std::cout << "UCTState::isFullyExpanded" << std::endl;
 		return true;
+	}
+
+	/******************************** function: updateChildHval *********************************************
+	/*******************************************************************************************************/
+
+	void UCTState::updateChildHval(std::vector< std::pair <Eigen::Isometry3d, float> > childStates){
+		if(!hval.size()) return;
+
+		std::cout << "UCTState::updateChildHval " << hval.size() << std::endl;
+
+		for (int ii=0; ii<childStates.size(); ii++){
+			hval[ii] = childStates[ii].second;
+		}
 	}
 
 	/********************************* end of functions ****************************************************

@@ -17,10 +17,15 @@ namespace evaluate{
 			void getClusterHypoError(scene::Scene *currScene, int sceneIdx);
 			void getSearchResults(scene::Scene *currScene, int sceneIdx);
 			void writeResults();
+			void getPCAError(scene::Scene *currScene, int sceneIdx);
 
 			std::vector<float> rotErr_super4pcs;
 			std::vector<float> transErr_super4pcs;
 			std::vector<float> emdErr_super4pcs;
+
+			std::vector<float> rotErr_PCA;
+			std::vector<float> transErr_PCA;
+			std::vector<float> emdErr_PCA;
 
 			std::vector<float> rotErr_super4pcsICP;
 			std::vector<float> transErr_super4pcsICP;
@@ -33,10 +38,6 @@ namespace evaluate{
 			std::vector<float> rotErr_allhypothesisMintrans;
 			std::vector<float> transErr_allhypothesisMintrans;
 			std::vector<float> emdErr_allhypothesisMintrans;
-
-			std::vector<float> rotErr_allhypothesisMinEmd;
-			std::vector<float> transErr_allhypothesisMinEmd;
-			std::vector<float> emdErr_allhypothesisMinEmd;
 
 			std::vector<float> rotErr_clusterhypothesisMinRot;
 			std::vector<float> transErr_clusterhypothesisMinRot;

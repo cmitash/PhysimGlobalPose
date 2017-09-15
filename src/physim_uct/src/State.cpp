@@ -13,6 +13,7 @@ namespace state{
 
 	State::State(unsigned int numObjects){
 		this->numObjects = numObjects;
+		renderedImg = cv::Mat::zeros(480, 640, CV_32FC1);
 		hval = INT_MAX;
 		score = INT_MAX;
 	}
@@ -35,23 +36,42 @@ namespace state{
 	void State::copyParent(State* copyFrom){
 		this->objects = copyFrom->objects;
 		this->stateId = copyFrom->stateId;
+		copyFrom->renderedImg.copyTo(this->renderedImg);
 	}
 
 	/********************************* function: render ****************************************************
+	This can be optimized
 	*******************************************************************************************************/
 
-	void State::render(Eigen::Matrix4f cam_pose, std::string scenePath, cv::Mat &depth_image){
+	void State::render(Eigen::Matrix4f cam_pose, std::string scenePath){
+		std::cout << "State::render::StateId: " << stateId << std::endl;
+		cv::Mat depth_image;
+
+		// perform rendering for the last added object
 		clearScene();
-		for(int ii=0; ii<objects.size(); ii++){
-  			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[ii].first->objModel));
-  			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[ii].first->objModel));
-  			Eigen::Matrix4f transform;
-  			utilities::convertToMatrix(objects[ii].second, transform);
-  			utilities::convertToWorld(transform, cam_pose);
-  			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
-  			addObjects(mesh_out);
+		int finalObjectIdx = objects.size()-1;
+
+		if(finalObjectIdx >= 0) {
+			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
+			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
+			Eigen::Matrix4f transform;
+			utilities::convertToMatrix(objects[finalObjectIdx].second, transform);
+			utilities::convertToWorld(transform, cam_pose);
+			utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
+			addObjects(mesh_out);
+			renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
+
+			// copy the rendering of the current object over parent state render
+			for(int u=0; u<renderedImg.rows; u++)
+				for(int v=0; v<renderedImg.cols; v++){
+					float depth_curr = depth_image.at<float>(u,v);
+					float depth_parent = renderedImg.at<float>(u,v);
+					if(depth_curr > 0 && (depth_parent == 0 || depth_curr < depth_parent))
+						renderedImg.at<float>(u,v) = depth_curr;
+				}
 		}
-		renderDepth(cam_pose, depth_image, scenePath + "debug_search/render" + stateId + ".png");
+
+		utilities::writeDepthImage(renderedImg, scenePath + "debug_search/render" + stateId + ".png");
 	}
 
 	/********************************* function: updateNewObject *******************************************
@@ -59,7 +79,7 @@ namespace state{
 
 	void State::updateNewObject(apc_objects::APCObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
 		objects.push_back(std::make_pair(newObj, pose.first));
-		hval = (1 - pose.second)*(maxDepth - numObjects);
+		hval = (1 - pose.second) * pow(10, (maxDepth - numObjects));
 	}
 
 	/********************************* function: updateStateId *********************************************
@@ -74,7 +94,7 @@ namespace state{
 	/********************************* function: computeCost ***********************************************
 	*******************************************************************************************************/
 
-	void State::computeCost(cv::Mat renderedImg, cv::Mat obsImg){
+	void State::computeCost(cv::Mat obsImg){
 		float obScore = 0;
 		float renScore = 0;
 		float intScore = 0;
@@ -96,7 +116,6 @@ namespace state{
 	        }
 	    }
 	    score = obScore + renScore - intScore;
-	    std::cout<<"score: "<<score<<std::endl;
 	}
 
 	/********************************* function: performICP ************************************************
@@ -143,7 +162,6 @@ namespace state{
 	*******************************************************************************************************/
 
 	void State::performTrICP(std::string scenePath, float trimPercentage){
-		std::cout << "State::performTrICP:: " << stateId << std::endl;
 		if(!numObjects)
 			return;
 		PointCloud::Ptr transformedCloud (new PointCloud);
@@ -165,32 +183,32 @@ namespace state{
 		pcl::io::savePLYFile(input1, *unexplainedSegment);
 		#endif
 
-		if(numObjects > 1){
-			for(int ii=0; ii<numObjects-1; ii++) {
-				Eigen::Matrix4f objPose;
-				utilities::convertToMatrix(objects[ii].second, objPose);
-				pcl::transformPointCloud(*objects[ii].first->pclModel, *transformedCloud, objPose);
-				*explainedPts += *transformedCloud;
-			}
+		// if(numObjects > 1){
+		// 	for(int ii=0; ii<numObjects-1; ii++) {
+		// 		Eigen::Matrix4f objPose;
+		// 		utilities::convertToMatrix(objects[ii].second, objPose);
+		// 		pcl::transformPointCloud(*objects[ii].first->pclModel, *transformedCloud, objPose);
+		// 		*explainedPts += *transformedCloud;
+		// 	}
 
-			kdtree.setInputCloud (explainedPts);
+		// 	kdtree.setInputCloud (explainedPts);
 
-			pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
-			pcl::ExtractIndices<pcl::PointXYZ> extract;
+		// 	pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+		// 	pcl::ExtractIndices<pcl::PointXYZ> extract;
 
-			for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
-				std::vector<int> pointIdxRadiusSearch;
-	  			std::vector<float> pointRadiusSquaredDistance;
-	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
-	  				inliers->indices.push_back(ii);
-	  			}
-			}
-			extract.setInputCloud (unexplainedSegment);
-		    extract.setIndices (inliers);
-		    extract.setNegative (true);
-		    extract.filter (*unexplainedSegment);
+		// 	for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
+		// 		std::vector<int> pointIdxRadiusSearch;
+	 //  			std::vector<float> pointRadiusSquaredDistance;
+	 //  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
+	 //  				inliers->indices.push_back(ii);
+	 //  			}
+		// 	}
+		// 	extract.setInputCloud (unexplainedSegment);
+		//     extract.setIndices (inliers);
+		//     extract.setNegative (true);
+		//     extract.filter (*unexplainedSegment);
 
-		}
+		// }
 
 		#ifdef DBG_ICP
 		std::string input2 = scenePath + "debug_search/render" + stateId + "_Postsegment.ply";

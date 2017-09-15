@@ -8,9 +8,9 @@
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-int generateNewHypothesis = 0;
-int performSearch = 0;
-int evalPoseDataset17 = 1;
+int generateNewHypothesis = 1;
+int performSearch = 1;
+int evalPoseDataset17 = 0;
 int evalDatasetSize = 30; 
 
 // Global definations
@@ -26,25 +26,26 @@ void initScene (int argc, char **argv);
 
 static void callHeuristicSearch(scene::Scene *currScene){
   int poseWritten = 0;
-  for(int ii=0;ii<currScene->independentTrees.size();ii++){
-    
-    std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
-    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
-      hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
 
-    search::Search *HSearch = new search::Search(currScene->independentTrees[ii], hypothesis,
-                                currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
+  // iterate over all independent search trees
+  for(int treeIdx=0; treeIdx<currScene->independentTrees.size(); treeIdx++){
+    std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
+
+    // iterate over the objects in the tree and create hypothesis set
+    for(int jj=0; jj<currScene->independentTrees[treeIdx].size(); jj++){
+      hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
+    }
+
+    search::Search *HSearch = new search::Search(currScene->independentTrees[treeIdx], hypothesis,
+                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore, treeIdx);
     HSearch->heuristicSearch();
 
-    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+    for(int jj=0;jj<currScene->independentTrees[treeIdx].size();jj++){
       currScene->finalState->objects[poseWritten + jj] = HSearch->bestState->objects[jj];
+    }
 
-    poseWritten += currScene->independentTrees[ii].size();
+    poseWritten += currScene->independentTrees[treeIdx].size();
   }
-
-  cv::Mat depth_image_final;
-  currScene->finalState->updateStateId(-2);
-  currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
 }
 
 /********************************* function: callUCTSearch **********************************************
@@ -52,25 +53,28 @@ static void callHeuristicSearch(scene::Scene *currScene){
 
 static void callUCTSearch(scene::Scene *currScene){
   int poseWritten = 0;
-  for(int ii=0;ii<currScene->independentTrees.size();ii++){
-    
+
+  // iterate over all independent search trees
+  for(int treeIdx=0; treeIdx<currScene->independentTrees.size(); treeIdx++){
     std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > hypothesis;
-    for(int jj=0;jj<currScene->independentTrees[ii].size();jj++)
+
+    // iterate over the objects in the tree and create hypothesis set
+    for(int jj=0;jj<currScene->independentTrees[treeIdx].size();jj++){
       hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
-      uct_search::UCTSearch *UCTSearch = new uct_search::UCTSearch(currScene->independentTrees[ii], hypothesis,
-                                  currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore);
-      UCTSearch->performSearch();
+    }
 
-      for(int jj=0;jj<currScene->independentTrees[ii].size();jj++){
-        currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
-      }
+    uct_search::UCTSearch *UCTSearch = new uct_search::UCTSearch(currScene->independentTrees[treeIdx], hypothesis,
+                                currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore, treeIdx);
+    UCTSearch->performSearch();
 
-      poseWritten += currScene->independentTrees[ii].size();
+    for(int jj=0;jj<currScene->independentTrees[treeIdx].size();jj++){
+      currScene->finalState->objects[poseWritten + jj] = UCTSearch->bestState->objects[jj];
+    }
+
+    poseWritten += currScene->independentTrees[treeIdx].size();
+
+    delete UCTSearch;
   }
-
-  cv::Mat depth_image_final;
-  currScene->finalState->updateStateId(-2);
-  currScene->finalState->render(currScene->camPose, currScene->scenePath, depth_image_final);
 }
 
 /********************************* function: estimatePose ***********************************************
@@ -171,6 +175,7 @@ void evaluatePoseDataset17(){
     pEval->getAllHypoError(currScene, i-1);
     pEval->getClusterHypoError(currScene, i-1);
     pEval->getSearchResults(currScene, i-1);
+    pEval->getPCAError(currScene, i-1);
     
     delete currScene;
   }

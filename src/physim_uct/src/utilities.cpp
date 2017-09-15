@@ -1,6 +1,6 @@
 #include <common_io.h>
 
-int numBinsEMD = 10;
+int numBinsEMD = 20;
 
 namespace utilities{
 	
@@ -68,7 +68,6 @@ namespace utilities{
 				depthShort = (depthShort << 3 | depthShort >> 13);
 				depthImgRaw.at<unsigned short>(u, v) = depthShort;
 			}
-		std::cout<<"path: "<<path<<std::endl;
 		cv::imwrite(path, depthImgRaw);
 	}
 

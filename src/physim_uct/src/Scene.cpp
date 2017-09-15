@@ -481,6 +481,49 @@ namespace scene{
 			tmpobjOrder.push_back(objOrder[2]);
 			independentTrees.push_back(tmpobjOrder);
 		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0031/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0032/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0033/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0034/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0035/") == 0){
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
+		else {
+			std::cout << "encode a dependency order !!!" << std::endl;
+			std::vector<apc_objects::APCObjects*> tmpobjOrder;
+			tmpobjOrder.push_back(objOrder[0]);
+			tmpobjOrder.push_back(objOrder[1]);
+			tmpobjOrder.push_back(objOrder[2]);
+			independentTrees.push_back(tmpobjOrder);
+		}
 	}
 
 	/********************************* function: kernelKMeans **********************************************
@@ -832,7 +875,9 @@ namespace scene{
 			descretizeHypothesisSet(objOrder[i], bestLCPPose.second, poseMap, allSuperPCSposes);
 			clusterHypothesisSet(objOrder[i], poseMap, clusteredPoses);
 
-			clusteredPoses.push_back(bestLCPPose);
+			// Whether you want to use the best LCP Pose
+			// clusteredPoses.push_back(bestLCPPose);
+			
 			unconditionedHypothesis.push_back(clusteredPoses);
 
 			std::cout << "*****Scene::getHypothesis Ends*******" << std::endl;
@@ -850,14 +895,13 @@ namespace scene{
 			utilities::writePoseToFile(bestPoseMat, finalState->objects[finalState->numObjects-1].first->objName, scenePath, "debug_super4PCS/super4pcs");
 
 			finalState->performTrICP(scenePath, 0.9);
+			finalState->render(camPose, scenePath);
 
 			utilities::convertToMatrix(finalState->objects[finalState->numObjects-1].second, bestPoseMat);
 			utilities::convertToWorld(bestPoseMat, camPose);
 		    utilities::writePoseToFile(bestPoseMat, finalState->objects[finalState->numObjects-1].first->objName, scenePath, "debug_super4PCS/super4pcs");
 		}
-		cv::Mat depth_image_minLCP;
-		finalState->render(camPose, scenePath, depth_image_minLCP);
-		finalState->computeCost(depth_image_minLCP, depthImage);
+		finalState->computeCost(depthImage);
 
 		#ifdef DBG_SUPER4PCS
 		    ofstream pFile;
@@ -891,29 +935,30 @@ namespace scene{
 				utilities::convertToCamera(poseMat, camPose);
 				utilities::convertToIsometry3d(poseMat, hypPose);
 
-				// clusteredPoses.push_back(std::make_pair(hypPose, score));
+				//clusteredPoses.push_back(std::make_pair(hypPose, score));
 				clusteredPoses.push_back(std::make_pair(hypPose, 0));
 			}
 
 			// add the best super4PCS hypothesis as well
-			Eigen::Isometry3d isoPose;
-			Eigen::Matrix4f bestPoseMat;
-			bestPoseMat.setIdentity();
+			// Eigen::Isometry3d isoPose;
+			// Eigen::Matrix4f bestPoseMat;
+			// bestPoseMat.setIdentity();
 
-			pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
-			pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
-					 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
-					 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
+			// pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
+			// pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
+			// 		 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
+			// 		 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
 
-			pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
-					 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
-					 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
+			// pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
+			// 		 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
+			// 		 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
 			
-			utilities::convertToCamera(bestPoseMat, camPose);
-			utilities::convertToIsometry3d(bestPoseMat, isoPose);
-			pSuper4PCSFile.close();
+			// utilities::convertToCamera(bestPoseMat, camPose);
+			// utilities::convertToIsometry3d(bestPoseMat, isoPose);
+			// pSuper4PCSFile.close();
 			// clusteredPoses.push_back(std::make_pair(isoPose, bestScore));
-			clusteredPoses.push_back(std::make_pair(isoPose, 0));
+			// clusteredPoses.push_back(std::make_pair(isoPose, 0));
+			
 			cutOffScore.push_back(searchLCPThreshold*bestScore);
 
 			unconditionedHypothesis.push_back(clusteredPoses);
@@ -940,11 +985,10 @@ namespace scene{
 
 			finalState->numObjects = i+1;
 			finalState->updateNewObject(objOrder[i], std::make_pair(isoPose, 0.f), finalState->numObjects);
+			finalState->render(camPose, scenePath);
 			pSuper4PCSFile.close();
 		}
-		cv::Mat depth_image_minLCP;
-		finalState->render(camPose, scenePath, depth_image_minLCP);
-		finalState->computeCost(depth_image_minLCP, depthImage);
+		finalState->computeCost(depthImage);
 
 	}
 	/********************************* end of functions ****************************************************
