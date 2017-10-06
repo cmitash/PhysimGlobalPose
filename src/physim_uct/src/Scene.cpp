@@ -170,6 +170,16 @@ namespace scene{
 		utilities::writeDepthImage(depthImage, scenePath + "debug_search/scene.png");
 	}
 
+	/********************************* function: performLCCPSegmentation ***********************************
+	*******************************************************************************************************/
+	typedef pcl::LCCPSegmentation<pcl::PointXYZ>::SupervoxelAdjacencyList SuperVoxelAdjacencyList;
+	void Scene::performLCCPSegmentation(){
+		pcl::PointCloud<PointT>::Ptr input_cloud_ptr (new pcl::PointCloud<PointT>);
+  		pcl::PointCloud<pcl::Normal>::Ptr input_normals_ptr (new pcl::PointCloud<pcl::Normal>);
+  		bool has_normals = false;
+  
+	}
+
 	/********************************* function: getOrder **************************************************
 	*******************************************************************************************************/
 
@@ -935,11 +945,12 @@ namespace scene{
 				utilities::convertToCamera(poseMat, camPose);
 				utilities::convertToIsometry3d(poseMat, hypPose);
 
-				//clusteredPoses.push_back(std::make_pair(hypPose, score));
+				// clusteredPoses.push_back(std::make_pair(hypPose, score));
 				clusteredPoses.push_back(std::make_pair(hypPose, 0));
 			}
 
 			// add the best super4PCS hypothesis as well
+			
 			// Eigen::Isometry3d isoPose;
 			// Eigen::Matrix4f bestPoseMat;
 			// bestPoseMat.setIdentity();

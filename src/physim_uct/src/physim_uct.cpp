@@ -9,9 +9,12 @@
 
 // mode of operation
 int generateNewHypothesis = 1;
-int performSearch = 1;
+int performSearch = 0;
+
+// evaluation mode
 int evalPoseDataset17 = 0;
-int evalDatasetSize = 30; 
+int evalDatasetSize = 42;
+std::string dataset_path = "/home/chaitanya/PoseDataset17/";
 
 // Global definations
 std::string env_p;
@@ -150,16 +153,16 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
 
 void evaluatePoseDataset17(){
   evaluate::Evaluate *pEval = new evaluate::Evaluate();
-  system("rm /home/chaitanya/PoseDataset17/result.txt");
-  system("rm /home/chaitanya/PoseDataset17/resultAllHypo.txt");
-  system("rm /home/chaitanya/PoseDataset17/resultClusterHypo.txt");
-  system("rm /home/chaitanya/PoseDataset17/resultSearch.txt");
-  system("rm /home/chaitanya/PoseDataset17/resultSuper4pcs.txt");
-  system("rm /home/chaitanya/PoseDataset17/resultSuper4pcsICP.txt");
+  system("rm " + dataset_path + "result.txt");
+  system("rm " + dataset_path + "resultAllHypo.txt");
+  system("rm " + dataset_path + "resultClusterHypo.txt");
+  system("rm " + dataset_path + "resultSearch.txt");
+  system("rm " + dataset_path + "resultSuper4pcs.txt");
+  system("rm " + dataset_path + "resultSuper4pcsICP.txt");
 
   for(int i=1; i<=evalDatasetSize; i++){
     char buf[50];
-    sprintf(buf,"/home/chaitanya/PoseDataset17/table/scene-%04d/", i);
+    sprintf(buf, dataset_path + "table/scene-%04d/", i);
     std::string scenePath(buf);
     std::cout << scenePath << std::endl;
     scene::Scene *currScene = new scene::Scene(scenePath);

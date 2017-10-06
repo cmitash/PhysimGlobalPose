@@ -59,7 +59,7 @@ extern std::map<std::string, Eigen::Vector3f> symMap; // FIX ME
 
 #define DBG_SUPER4PCS
 // #define DBG_ICP
-// #define DBG_PHYSICS
+#define DBG_PHYSICS
 #define DGB_RESULT
 
 // Declaration for common utility functions

@@ -6,9 +6,10 @@ bool operator<(const uct_state::UCTState& lhs, const uct_state::UCTState& rhs) {
 
 namespace uct_search{
 	clock_t search_begin_time;
-	float tableHeight = 0.545;
+	float tableHeight = 0.53;
 	float trimICPthreshold = 0.9;
-	int maxSearchTime = 30;
+	int maxSearchTime = 120;
+	int maxSearchIters = 1500;
 	int numExpansionsSearch;
 	
 	/********************************* function: constructor ***********************************************
@@ -137,6 +138,11 @@ namespace uct_search{
 		while(tmpState->numObjects < maxDepth){
 			tmpState->numObjects++;
 
+			ofstream pFile;
+		    pFile.open ((scenePath + "debug_search/debug.txt").c_str(), std::ofstream::out | std::ofstream::app);
+			pFile << "Policy : " << numExpansionsSearch << " " << selState->stateId << std::endl;
+			pFile.close();
+
 			// random policy
 			int randHypothesis = rand() % unconditionedHypothesis[tmpState->numObjects-1].size();
 			tmpState->updateStateId(randHypothesis);
@@ -242,12 +248,15 @@ namespace uct_search{
 		
 		while(1){
 
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > maxSearchTime)
-				break;
+			// if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > maxSearchTime)
+			// 	break;
 
+			if(numExpansionsSearch > maxSearchIters)
+				break;
+			
 			std::cout << "*****UCTSearch::performSearch::Begin()*****" << std::endl;
 			uct_state::UCTState *selState = treePolicy(rootState);
-			float reward = LCPPolicy(selState);
+			float reward = defaultPolicy(selState);
 			backupReward(selState, reward);
 			std::cout << "*****UCTSearch::performSearch::End()*****" << std::endl;
 			std::cout << std::endl;

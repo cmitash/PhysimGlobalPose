@@ -3,8 +3,10 @@
 namespace search{
 
 	int numExpansionsSearch;
-	float tableHeight = 0.545;
+	float tableHeight = 0.53;
 	float trimICPthreshold = 0.9;
+	int maxSearchTime = 120;
+	int maxSearchIters = 1500;
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
@@ -94,7 +96,10 @@ namespace search{
 		pq.push(rootState);
 		while(!pq.empty()){
 			
-			if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > 600000)
+			// if((float( clock () - begin_time ) /  CLOCKS_PER_SEC) > maxSearchTime)
+			// 	break;
+
+			if(numExpansionsSearch > maxSearchIters)
 				break;
 			
 			state::State *expState = pq.top();

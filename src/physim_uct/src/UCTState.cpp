@@ -5,7 +5,8 @@ void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
 void clearScene();
 
 namespace uct_state{
-	float explanationThreshold = 0.005;
+	float explanationThreshold = 0.01;
+	float pointRemovalThreshold = 0.008;
 	float alpha = 5000;
 
 	/********************************* function: constructor ***********************************************
@@ -150,7 +151,7 @@ namespace uct_state{
 			for(int ii=0; ii<unexplainedSegment->points.size(); ii++){
 				std::vector<int> pointIdxRadiusSearch;
 	  			std::vector<float> pointRadiusSquaredDistance;
-	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], 0.008, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
+	  			if (kdtree.radiusSearch (unexplainedSegment->points[ii], pointRemovalThreshold, pointIdxRadiusSearch, pointRadiusSquaredDistance) > 0 ){
 	  				inliers->indices.push_back(ii);
 	  			}
 			}

@@ -3,7 +3,7 @@
 std::vector< std::pair <apc_objects::APCObjects*, Eigen::Matrix4f> > groundTruth;
 int evalEMD = 0;
 
-#define DATASET_SIZE 90
+#define DATASET_SIZE 126
 
 namespace evaluate{
 
@@ -200,6 +200,12 @@ void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 			plotFile.open((currScene->scenePath + "PCAErr_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ofstream::out);
 			plotFile << rotErr << " " << transErr << " " << emdErr << std::endl;
 			plotFile.close();
+
+			ofstream resFile;
+			resFile.open ("/home/chaitanya/PoseDataset17/resultPCA.txt", std::ofstream::out|std::ofstream::app);
+			resFile <<"getSuper4pcsError: " << sceneIdx*3 + obIdx << " " << rotErr << " " << transErr << " " << emdErr << std::endl;
+			resFile.close();
+
 		}
 
 		if(evalEMD){
