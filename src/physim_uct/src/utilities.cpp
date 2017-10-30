@@ -71,6 +71,33 @@ namespace utilities{
 		cv::imwrite(path, depthImgRaw);
 	}
 
+	/********************************* function: writeClassImage *******************************************
+	*******************************************************************************************************/
+
+	void writeClassImage(cv::Mat &classImg, cv::Mat colorImage, std::string path){
+		cv::Mat classImgRaw(classImg.rows, classImg.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+		cv::Mat colArray(4,1,CV_8UC3, cv::Scalar(0, 0, 0));
+		colArray.at<cv::Vec3b>(0,0)[0] = 255;
+		colArray.at<cv::Vec3b>(1,0)[1] = 255;
+		colArray.at<cv::Vec3b>(2,0)[2] = 255;
+
+		for(int u=0; u<classImg.rows; u++)
+			for(int v=0; v<classImg.cols; v++){
+				int classVal = classImg.at<uchar>(u,v);
+				if (classVal > 0){
+					classImgRaw.at<cv::Vec3b>(u,v)[0] = colArray.at<cv::Vec3b>(classVal-1,0)[0];
+					classImgRaw.at<cv::Vec3b>(u,v)[1] = colArray.at<cv::Vec3b>(classVal-1,0)[1];
+					classImgRaw.at<cv::Vec3b>(u,v)[2] = colArray.at<cv::Vec3b>(classVal-1,0)[2];
+				}
+			}
+
+		cv::Mat vizImage(classImg.rows, classImg.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+		double alpha = 0.6;
+		double beta = ( 1.0 - alpha );
+		addWeighted(colorImage, alpha, classImgRaw, beta, 0.0, vizImage);
+		cv::imwrite(path, vizImage);
+	}
+
 	/********************************* function: convert3dOrganized ****************************************
 	Description: Convert Depth image to point cloud. TODO: Could it be faster?
 	Reference: https://gist.github.com/jacyzon/fa868d0bcb13abe5ade0df084618cf9c

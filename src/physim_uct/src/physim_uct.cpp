@@ -8,8 +8,8 @@
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-int generateNewHypothesis = 1;
-int performSearch = 0;
+int generateNewHypothesis = 0;
+int performSearch = 2;
 
 // evaluation mode
 int evalPoseDataset17 = 0;
@@ -23,6 +23,38 @@ std::map<std::string, Eigen::Vector3f> symMap;
 
 // depth_sim package
 void initScene (int argc, char **argv);
+void addObjects(pcl::PolygonMesh::Ptr mesh);
+void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
+void clearScene();
+
+/********************************* function: vizResults *************************************************
+********************************************************************************************************/
+
+void vizResults(Eigen::Matrix4f cam_pose, std::string scenePath, apc_objects::APCObjects* obj,
+                  Eigen::Isometry3d objPose, cv::Mat &renderedImg, cv::Mat &renderedClassImg, int objId){
+  cv::Mat depth_image;
+  clearScene();
+
+  pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (obj->objModel));
+  pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (obj->objModel));
+  Eigen::Matrix4f transform;
+  utilities::convertToMatrix(objPose, transform);
+  utilities::convertToWorld(transform, cam_pose);
+  utilities::TransformPolyMesh(mesh_in, mesh_out, transform);
+  addObjects(mesh_out);
+  renderDepth(cam_pose, depth_image, scenePath + "debug_search/renderFinal.png");
+
+  // copy the rendering of the current object over parent state render
+  for(int u=0; u<depth_image.rows; u++)
+    for(int v=0; v<depth_image.cols; v++){
+      float depth_curr = depth_image.at<float>(u,v);
+      float depth_parent = renderedImg.at<float>(u,v);
+      if(depth_curr > 0 && (depth_parent == 0 || depth_curr < depth_parent)){
+        renderedImg.at<float>(u,v) = depth_curr;
+        renderedClassImg.at<uchar>(u,v) = objId;
+      }
+    }
+}
 
 /********************************* function: callHeuristicSearch ****************************************
 ********************************************************************************************************/
@@ -117,6 +149,8 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     callUCTSearch(currScene);
 
   // copy final results to rosmessage
+  cv::Mat renderedImg = cv::Mat::zeros(480, 640, CV_32FC1);
+  cv::Mat renderedClassImg = cv::Mat::zeros(480, 640, CV_8UC1);
   for(int ii=0; ii<currScene->finalState->numObjects; ii++){
     physim_uct::ObjectPose pose;
     geometry_msgs::Pose msg;
@@ -129,6 +163,11 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     std::string input1 = scenePath + "debug_search/result_" + currScene->finalState->objects[ii].first->objName + ".ply";
     pcl::io::savePLYFile(input1, *transformedCloud);
     #endif
+
+    vizResults(currScene->camPose, scenePath, currScene->finalState->objects[ii].first,
+      currScene->finalState->objects[ii].second, renderedImg, renderedClassImg, ii+1);
+    utilities::writeDepthImage(renderedImg, scenePath + "debug_search/renderFinalDepth.png");
+    utilities::writeClassImage(renderedClassImg, currScene->colorImage, scenePath + "debug_search/renderFinalClass.png");
 
     Eigen::Vector3d trans = currScene->finalState->objects[ii].second.translation();
     Eigen::Quaterniond rot(currScene->finalState->objects[ii].second.rotation());
@@ -153,16 +192,16 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
 
 void evaluatePoseDataset17(){
   evaluate::Evaluate *pEval = new evaluate::Evaluate();
-  system("rm " + dataset_path + "result.txt");
-  system("rm " + dataset_path + "resultAllHypo.txt");
-  system("rm " + dataset_path + "resultClusterHypo.txt");
-  system("rm " + dataset_path + "resultSearch.txt");
-  system("rm " + dataset_path + "resultSuper4pcs.txt");
-  system("rm " + dataset_path + "resultSuper4pcsICP.txt");
+  system(("rm " + dataset_path + "result.txt").c_str());
+  system(("rm " + dataset_path + "resultAllHypo.txt").c_str());
+  system(("rm " + dataset_path + "resultClusterHypo.txt").c_str());
+  system(("rm " + dataset_path + "resultSearch.txt").c_str());
+  system(("rm " + dataset_path + "resultSuper4pcs.txt").c_str());
+  system(("rm " + dataset_path + "resultSuper4pcsICP.txt").c_str());
 
   for(int i=1; i<=evalDatasetSize; i++){
     char buf[50];
-    sprintf(buf, dataset_path + "table/scene-%04d/", i);
+    sprintf(buf, (dataset_path + "table/scene-%04d/").c_str(), i);
     std::string scenePath(buf);
     std::cout << scenePath << std::endl;
     scene::Scene *currScene = new scene::Scene(scenePath);

@@ -3,10 +3,10 @@
 namespace search{
 
 	int numExpansionsSearch;
-	float tableHeight = 0.53;
+	float tableHeight = 0.535;
 	float trimICPthreshold = 0.9;
-	int maxSearchTime = 120;
-	int maxSearchIters = 1500;
+	int maxSearchTime = 10;
+	int maxSearchIters = 300;
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/

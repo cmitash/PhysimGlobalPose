@@ -9,7 +9,7 @@ namespace uct_search{
 	float tableHeight = 0.53;
 	float trimICPthreshold = 0.9;
 	int maxSearchTime = 120;
-	int maxSearchIters = 1500;
+	int maxSearchIters = 300;
 	int numExpansionsSearch;
 	
 	/********************************* function: constructor ***********************************************

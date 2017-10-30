@@ -13,7 +13,6 @@ namespace scene{
 			void performRCNNDetection();
 			void get3DSegments();
 			void removeTable();
-			void performLCCPSegmentation();
 			void getOrder();
 			void readHypothesis();
 

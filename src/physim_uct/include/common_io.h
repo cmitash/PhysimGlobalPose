@@ -59,7 +59,7 @@ extern std::map<std::string, Eigen::Vector3f> symMap; // FIX ME
 
 #define DBG_SUPER4PCS
 // #define DBG_ICP
-#define DBG_PHYSICS
+// #define DBG_PHYSICS
 #define DGB_RESULT
 
 // Declaration for common utility functions
@@ -70,6 +70,7 @@ namespace utilities{
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
 	void readDepthImage(cv::Mat &depthImg, std::string path);
 	void writeDepthImage(cv::Mat &depthImg, std::string path);
+	void writeClassImage(cv::Mat &classImg, cv::Mat colorImage, std::string path);
 	void convert2d(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
 	void TransformPolyMesh(const pcl::PolygonMesh::Ptr &mesh_in, pcl::PolygonMesh::Ptr &mesh_out, Eigen::Matrix4f transform);
 	void convertToMatrix(Eigen::Isometry3d &from, Eigen::Matrix4f &to);
