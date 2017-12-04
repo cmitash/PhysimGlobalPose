@@ -3,7 +3,6 @@
 namespace search{
 
 	int numExpansionsSearch;
-	float tableHeight = 0.535;
 	float trimICPthreshold = 0.9;
 	int maxSearchTime = 10;
 	int maxSearchIters = 300;
@@ -11,7 +10,7 @@ namespace search{
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	Search::Search(std::vector<apc_objects::APCObjects*> objOrder, 
+	Search::Search(std::vector<apc_objects::APCObjects*> objOrder, std::vector<float> tableParams,
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
 					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat obsDepthImage, std::vector<float> cutOffScore, int rootId){
 		rootState = new state::State(0);
@@ -29,8 +28,8 @@ namespace search{
 		bestScore = 0;
 
 		// initialize physics engine
-		pSim = new physim::PhySim();
-		pSim->addTable(tableHeight);
+		pSim = new physim::PhySim(tableParams);
+		pSim->addTable(tableParams);
 		for(int ii=0; ii<objOrder.size(); ii++)
 			pSim->initRigidBody(objOrder[ii]->objName);
 

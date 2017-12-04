@@ -9,7 +9,7 @@ namespace search{
 	
 	class Search{
 		public:
-			Search(std::vector<apc_objects::APCObjects*> objOrder, 
+			Search(std::vector<apc_objects::APCObjects*> objOrder, std::vector<float> tableParams,
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
 					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat obsDepthImage, std::vector<float> cutOffScore, int rootId);
 			void heuristicSearch();

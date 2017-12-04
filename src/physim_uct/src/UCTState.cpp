@@ -23,6 +23,12 @@ namespace uct_state{
 		renderedImg = cv::Mat::zeros(480, 640, CV_32FC1);
 	}
 
+	/********************************* function: destructor ************************************************
+	*******************************************************************************************************/
+
+	UCTState::~UCTState(){
+	}
+
 	/********************************* function: copyParent ************************************************
 	*******************************************************************************************************/
 
@@ -36,7 +42,6 @@ namespace uct_state{
 	*******************************************************************************************************/
 
 	void UCTState::render(Eigen::Matrix4f cam_pose, std::string scenePath){
-		std::cout << "State::render::StateId: " << stateId << std::endl;
 		cv::Mat depth_image;
 
 		// perform rendering for the last added object
@@ -101,13 +106,13 @@ namespace uct_state{
 
 	            float absDiff = fabs(obVal - renVal);
 
-	            if(obVal > 0 && absDiff < explanationThreshold)obScore++;
-	            if(renVal > 0 && absDiff < explanationThreshold)renScore++;
-	            if(obVal > 0 && renVal > 0 && absDiff < explanationThreshold)intScore++;
+	            // needs to be changed when modifying optimization direction
+	            if(obVal > 0 && absDiff > explanationThreshold)obScore++;
+	            if(renVal > 0 && absDiff > explanationThreshold)renScore++;
+	            if(obVal > 0 && renVal > 0 && absDiff > explanationThreshold)intScore++;
 	        }
 	    }
 	    renderScore = obScore + renScore - intScore;
-	    std::cout << "UCTState::computeCost:: Score: "<< renderScore << std::endl;
 	}
 
 	/********************************* function: performTrICP **********************************************
@@ -123,6 +128,7 @@ namespace uct_state{
 		Eigen::Matrix4f tform;
 		
 		// initialize trimmed ICP
+		pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
 		pcl::recognition::TrimmedICP<pcl::PointXYZ, float> tricp;
 		tricp.init(objects[numObjects-1].first->pclModel);
 		tricp.setNewToOldEnergyRatio(1.f);
@@ -261,22 +267,26 @@ namespace uct_state{
 	/******************************** function: getBestChild ************************************************
 	/*******************************************************************************************************/
 
-	uct_state::UCTState* UCTState::getBestChild(){
+	uct_state::UCTState* UCTState::getBestChild(std::string scenePath){
 		int bestChildIdx = -1;
-		float bestVal = 0;
+		float bestVal = INT_MAX;
 
-		for(int ii=0; ii<numChildren; ii++){
-			// std::cout << "UCTState::getBestChild:: childIdx: " << ii << " qval: " << children[ii]->qval 
-			// 	<< " numExpansions: " << children[ii]->numExpansions << std::endl;
-				
-			float tmpVal = (children[ii]->qval/children[ii]->numExpansions) + alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
-			if (tmpVal > bestVal){
+		for(int ii=0; ii<numChildren; ii++){			
+			// needs to be changed when modifying optimization direction
+			float tmpVal = (children[ii]->qval/children[ii]->numExpansions) - alpha*sqrt(2*log(numExpansions)/children[ii]->numExpansions);
+			if (tmpVal < bestVal){
 				bestVal = tmpVal;
 				bestChildIdx = ii;
 			}
 		}
 
-		std::cout << "UCTState::getBestChild:: state: " << stateId << ", bestChildIdx: " << bestChildIdx << ", bestVal: " << bestVal << std::endl;
+		// write into the debug file
+		ofstream pFile;
+	    pFile.open ((scenePath + "debug_search/debug.txt").c_str(), std::ofstream::out | std::ofstream::app);
+		pFile << "UCTState::getBestChild:: state:" << stateId << 
+					", bestChildIdx: " << bestChildIdx << ", bestVal: " << bestVal<< std::endl;
+		pFile.close();
+
 		return children[bestChildIdx];
 	}
 
@@ -287,7 +297,6 @@ namespace uct_state{
 		for(int ii=0; ii<numChildren; ii++)
 			if(isExpanded[ii] == 0)return false;
 
-		std::cout << "UCTState::isFullyExpanded" << std::endl;
 		return true;
 	}
 
@@ -296,9 +305,6 @@ namespace uct_state{
 
 	void UCTState::updateChildHval(std::vector< std::pair <Eigen::Isometry3d, float> > childStates){
 		if(!hval.size()) return;
-
-		std::cout << "UCTState::updateChildHval " << hval.size() << std::endl;
-
 		for (int ii=0; ii<childStates.size(); ii++){
 			hval[ii] = childStates[ii].second;
 		}

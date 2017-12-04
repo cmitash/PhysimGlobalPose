@@ -32,8 +32,5 @@ namespace apc_objects{
 		sor.setInputCloud (pclModel);
 		sor.setLeafSize (0.03f, 0.03f, 0.03f);
 		sor.filter (*pclModelSparse);
-		// pcl::fromPCLPointCloud2(objModel.cloud, *pclModelSparse);
-		// pcl::io::savePLYFile(env_p + pathObjSparse + name + ".ply", *pclModelSparse);
-		// pcl::io::loadPLYFile(env_p + pathObjSparse + name + ".ply", *pclModelSparse);
 	}
 }

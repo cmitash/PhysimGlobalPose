@@ -31,38 +31,48 @@ namespace scene{
 		preprocess_begin_time = clock();
 
 		// Reading objects file and add the scene objects
-		std::ifstream filein((scenePath + "objects.txt").c_str());
-		std::string line;
-		while(std::getline(filein, line)){
+		system(("rosparam load " + scenePath + "gt_info.yml").c_str());
+
+		ros::NodeHandle nh;
+
+		// Reading camera pose
+		camPose = Eigen::Matrix4f::Zero(4,4);
+		std::vector<double> camPose7D;
+		nh.getParam("/camera/camera_pose", camPose7D);
+		utilities::toTransformationMatrix(camPose, camPose7D);
+
+		nh.getParam("/scene/num_objects", numObjects);
+		for(int ii=0; ii<numObjects; ii++){
+			std::string currObject;
+			char objTopic[50];
+			sprintf(objTopic, "/scene/object_%d/name", ii+1);
+			nh.getParam(objTopic, currObject);
 			for(int i=0;i<Objects.size();i++){
-				if(!line.compare(Objects[i]->objName))
+				if(!currObject.compare(Objects[i]->objName))
 					sceneObjs.push_back(Objects[i]);
 			}
 		}
 		this->scenePath = scenePath;
-		numObjects = sceneObjs.size();
-		filein.close();
-
-		// Reading camera pose
-		camPose = Eigen::Matrix4f::Zero(4,4);
-		filein.open ((scenePath + "cameraExtrinsic.txt").c_str(), std::ifstream::in);
-		for(int i=0; i<4; i++)
-			for(int j=0; j<4; j++)
-	  			filein >> camPose(i,j);
-	  	filein.close();
 
 	  	// Reading camera intrinsic matrix
 		camIntrinsic = Eigen::Matrix3f::Zero(3,3);
-		filein.open ((scenePath + "cameraIntinsic.txt").c_str(), std::ifstream::in);
-		for(int i=0; i<3; i++)
-			for(int j=0; j<3; j++)
-	  			filein >> camIntrinsic(i,j);
-	  	filein.close();
+	  	XmlRpc::XmlRpcValue camIntr;
+		nh.getParam("/camera/camera_intrinsics", camIntr);
+		for(int32_t ii = 0; ii < camIntr.size(); ii++)
+			for(int32_t jj = 0; jj < camIntr[ii].size(); jj++)
+				camIntrinsic(ii, jj) = static_cast<double>(camIntr[ii][jj]);
 
 	  	finalState = new state::State(0);
 	  	colorImage = cv::imread(scenePath + "frame-000000.color.png", CV_LOAD_IMAGE_COLOR);
 	    utilities::readDepthImage(depthImage, scenePath + "frame-000000.depth.png");
-	} 
+	}
+
+	/********************************* function: destructor ************************************************
+	*******************************************************************************************************/
+
+	Scene::~Scene(){
+		delete finalState;
+	}
 
 	/********************************* function: performRCNNDetection **************************************
 	*******************************************************************************************************/
@@ -119,6 +129,68 @@ namespace scene{
 		}
 	}
 
+	/********************************* function: getGTSegments *********************************************
+	*******************************************************************************************************/
+
+	void Scene::getGTSegments(){
+		for(int i=0;i<numObjects;i++){
+			std::cout << "Scene::getGTSegments: " << sceneObjs[i]->objName << " index: "<< sceneObjs[i]->objIdx << std::endl;
+			cv::Mat mask = cv::Mat::zeros(colorImage.rows, colorImage.cols, CV_32FC1);
+
+			cv::Mat classImage = cv::imread(scenePath + "frame-000000.mask.png", -1);
+
+			int imgWidth = classImage.cols;
+			int imgHeight = classImage.rows;
+
+			for(int u=0; u<imgHeight; u++)
+				for(int v=0; v<imgWidth; v++){
+					int classVal = (int)classImage.at<uchar>(u,v);
+					if(sceneObjs[i]->objIdx == classVal){
+						mask.at<float>(u,v) = 1.0;
+					}
+				}
+
+			cv::Mat objDepth = depthImage.mul(mask);
+			sceneObjs[i]->pclSegment = PointCloud::Ptr(new PointCloud);
+			sceneObjs[i]->pclSegmentDense = PointCloud::Ptr(new PointCloud);
+			utilities::convert3dUnOrganized(objDepth, camIntrinsic, sceneObjs[i]->pclSegment);
+
+			pcl::VoxelGrid<pcl::PointXYZ> sor;
+			sor.setInputCloud (sceneObjs[i]->pclSegment);
+			sor.setLeafSize (0.005f, 0.005f, 0.005f);
+			sor.filter (*sceneObjs[i]->pclSegment);
+		}
+	}
+
+	/********************************* function: getSegmentationPrior **************************************
+	*******************************************************************************************************/
+
+	void Scene::getSegmentationPrior(){
+		cv::Mat priorSegImage = cv::Mat::zeros(colorImage.rows, colorImage.cols, CV_8UC1);
+		cv::Mat currProbImage = cv::Mat::zeros(colorImage.rows, colorImage.cols, CV_32FC1);
+
+		for(int i=0;i<numObjects;i++){
+			std::cout << "Scene::getSegmentationPrior: " << sceneObjs[i]->objName << " index: "<< sceneObjs[i]->objIdx << std::endl;
+
+			char imgName[50];
+			cv::Mat probImage;
+			sprintf(imgName, "frame-000000.segm.%s.png", sceneObjs[i]->objName.c_str());
+			utilities::readDepthImage(probImage, (scenePath + imgName).c_str());
+			int imgWidth = probImage.cols;
+			int imgHeight = probImage.rows;
+
+			for(int u=0; u<imgHeight; u++)
+				for(int v=0; v<imgWidth; v++){
+					float prob = probImage.at<float>(u,v);
+					if(prob > currProbImage.at<float>(u,v) && depthImage.at<float>(u,v) > 0){
+						priorSegImage.at<uchar>(u,v) = sceneObjs[i]->objIdx;
+						currProbImage.at<float>(u,v) = prob;
+					}
+				}
+		}
+		cv::imwrite(scenePath + "segm.png", priorSegImage);
+	}
+
 	/********************************* function: removeTable ***********************************************
 	References: http://pointclouds.org/documentation/tutorials/planar_segmentation.php,
 	http://pointclouds.org/documentation/tutorials/extract_indices.php
@@ -150,8 +222,6 @@ namespace scene{
 		seg.setInputCloud (SampledSceneCloud);
 		seg.segment (*inliers, *coefficients);
 
-		std::cout << "table co-ordinates are: " << coefficients->values[0] << coefficients->values[1] <<
-														coefficients->values[2] << coefficients->values[3] <<std::endl;
 		int imgWidth = depthImage.cols;
 		int imgHeight = depthImage.rows;
 
@@ -170,358 +240,111 @@ namespace scene{
 		utilities::writeDepthImage(depthImage, scenePath + "debug_search/scene.png");
 	}
 
+	/********************************* function: getTableParams ********************************************
+	*******************************************************************************************************/
+
+	void Scene::getTableParams(){
+		cv::Mat tmpDepthImage;
+		utilities::readDepthImage(tmpDepthImage, scenePath + "frame-000000.depth.png");
+		PointCloud::Ptr SampledSceneCloud(new PointCloud);
+		PointCloud::Ptr tmpsceneCloud(new PointCloud);
+		utilities::convert3dOrganized(tmpDepthImage, camIntrinsic, tmpsceneCloud);
+		
+		// Creating the filtering object: downsample the dataset using a leaf size of 0.5cm
+		pcl::VoxelGrid<pcl::PointXYZ> sor;
+		sor.setInputCloud (tmpsceneCloud);
+		sor.setLeafSize (0.005f, 0.005f, 0.005f);
+		sor.filter (*SampledSceneCloud);
+
+		PointCloud::Ptr sceneCloudTrans (new PointCloud);
+		pcl::transformPointCloud(*SampledSceneCloud, *sceneCloudTrans, camPose);
+
+		// Plane Fitting
+		pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+		pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+		pcl::SACSegmentation<pcl::PointXYZ> seg;
+		seg.setOptimizeCoefficients (true);
+		seg.setModelType (pcl::SACMODEL_PLANE);
+		seg.setMethodType (pcl::SAC_MSAC);
+		seg.setDistanceThreshold (0.005);
+		seg.setMaxIterations (1000);
+		seg.setInputCloud (sceneCloudTrans);
+		seg.segment (*inliers, *coefficients);
+
+		PointCloud::Ptr cloud_p(new PointCloud);
+		pcl::ExtractIndices<pcl::PointXYZ> extract;
+		extract.setInputCloud (sceneCloudTrans);
+	    extract.setIndices (inliers);
+	    extract.setNegative (false);
+	    extract.filter (*cloud_p);
+		pcl::io::savePLYFile(scenePath + "inliers.ply", *cloud_p);
+
+		float mean_z = 0;
+		for(int ii=0;ii<cloud_p->points.size();ii++)
+			mean_z += cloud_p->points[ii].z;
+		mean_z /= cloud_p->points.size();
+
+		PointCloud::Ptr tableCloud (new PointCloud);
+		PointCloud::Ptr SampledTableCloud(new PointCloud);
+		pcl::io::loadPLYFile("/home/chaitanya/Extended-Rutgers-RGBD-dataset/table_sampled.ply", *tableCloud);
+		sor.setInputCloud (tableCloud);
+		sor.setLeafSize (0.005f, 0.005f, 0.005f);
+		sor.filter (*SampledTableCloud);
+
+		Eigen::Matrix4f tablePose;
+		tablePose.setIdentity();
+		tablePose(0,3) = 0.7;
+		tablePose(2,3) = mean_z - 0.2; /*table height*/
+		PointCloud::Ptr tableCloudTrans (new PointCloud);
+		pcl::transformPointCloud(*SampledTableCloud, *tableCloudTrans, tablePose);
+
+		pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+		icp.setInputSource(sceneCloudTrans);
+		icp.setInputTarget(tableCloudTrans);
+		icp.setMaxCorrespondenceDistance (0.01);
+		icp.setMaximumIterations(50);
+		icp.setTransformationEpsilon (1e-9);
+		pcl::PointCloud<pcl::PointXYZ> Final;
+		icp.align(Final);
+		Eigen::Matrix4f icpTransform = icp.getFinalTransformation();
+		tablePose = icpTransform.inverse().eval()*tablePose;
+		
+		// pcl::io::savePLYFile(scenePath + "scene_before.ply", *sceneCloudTrans);
+		// pcl::io::savePLYFile(scenePath + "scene_after.ply", Final);
+		
+		// pcl::io::savePLYFile(scenePath + "table_before.ply", *tableCloudTrans);
+		pcl::transformPointCloud(*SampledTableCloud, *tableCloudTrans, tablePose);
+		// pcl::io::savePLYFile(scenePath + "table_after.ply", *tableCloudTrans);
+
+		tableParams.push_back(tablePose(0,0));
+		tableParams.push_back(tablePose(0,1));
+		tableParams.push_back(tablePose(0,2));
+		tableParams.push_back(tablePose(0,3));
+		tableParams.push_back(tablePose(1,0));
+		tableParams.push_back(tablePose(1,1));
+		tableParams.push_back(tablePose(1,2));
+		tableParams.push_back(tablePose(1,3));
+		tableParams.push_back(tablePose(2,0));
+		tableParams.push_back(tablePose(2,1));
+		tableParams.push_back(tablePose(2,2));
+		tableParams.push_back(tablePose(2,3));
+	}
+
 	/********************************* function: getOrder **************************************************
 	*******************************************************************************************************/
 
 	void Scene::getOrder(){
-		objOrder = sceneObjs;
-		if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0001/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
+		ros::NodeHandle nh;
+		XmlRpc::XmlRpcValue my_list;
+		nh.getParam("/scene/dependency_order", my_list);
+		std::vector<apc_objects::APCObjects*> tmpobjOrder;
+		for(int32_t ii = 0; ii < my_list.size(); ii++){
 			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0002/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0003/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0004/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0005/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0006/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0007/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0008/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0009/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0010/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0011/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0012/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0013/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0014/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0015/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0016/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0017/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0018/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0019/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0020/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0021/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0022/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0023/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0024/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0025/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0026/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0027/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0028/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0029/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0030/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			independentTrees.push_back(tmpobjOrder);
-
-			tmpobjOrder.clear();
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0031/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0032/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0033/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0034/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else if(scenePath.compare("/home/chaitanya/PoseDataset17/table/scene-0035/") == 0){
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
-			independentTrees.push_back(tmpobjOrder);
-		}
-		else {
-			std::cout << "encode a dependency order !!!" << std::endl;
-			std::vector<apc_objects::APCObjects*> tmpobjOrder;
-			tmpobjOrder.push_back(objOrder[0]);
-			tmpobjOrder.push_back(objOrder[1]);
-			tmpobjOrder.push_back(objOrder[2]);
+			for(int32_t jj = 0; jj < my_list[ii].size(); jj++){
+				tmpobjOrder.push_back(sceneObjs[static_cast<int>(my_list[ii][jj])-1]);
+				std::cout << "Scene::getOrder: " << sceneObjs[static_cast<int>(my_list[ii][jj])-1]->objName << std::endl;
+			}
+			std::cout << "Scene::getOrder New Tree" << std::endl; 
 			independentTrees.push_back(tmpobjOrder);
 		}
 	}
@@ -861,7 +684,7 @@ namespace scene{
 
 	void Scene::computeHypothesisSet(){
 
-		for(int i=0;i<objOrder.size();i++){
+		for(int i=0;i<numObjects;i++){
 			std::cout << std::endl;
 			std::cout << "*****Scene::getHypothesis Begins*****" << std::endl;
 
@@ -871,12 +694,12 @@ namespace scene{
 			std::vector< std::pair <Eigen::Isometry3d, float> > clusteredPoses;
 			std::vector< std::pair <Eigen::Isometry3d, float> > subsetPoses;
 
-			getHypothesis(objOrder[i], bestLCPPose, allSuperPCSposes);
-			descretizeHypothesisSet(objOrder[i], bestLCPPose.second, poseMap, allSuperPCSposes);
-			clusterHypothesisSet(objOrder[i], poseMap, clusteredPoses);
+			getHypothesis(sceneObjs[i], bestLCPPose, allSuperPCSposes);
+			descretizeHypothesisSet(sceneObjs[i], bestLCPPose.second, poseMap, allSuperPCSposes);
+			clusterHypothesisSet(sceneObjs[i], poseMap, clusteredPoses);
 
-			// Whether you want to use the best LCP Pose
-			// clusteredPoses.push_back(bestLCPPose);
+			// Whether or not, you want to use the best LCP Pose
+			clusteredPoses.push_back(bestLCPPose);
 			
 			unconditionedHypothesis.push_back(clusteredPoses);
 
@@ -885,11 +708,11 @@ namespace scene{
 		}
 
 		finalState->updateStateId(-1);
-		for(int i=0;i<objOrder.size();i++){
+		for(int i=0;i<sceneObjs.size();i++){
 			Eigen::Matrix4f bestPoseMat;
 
 			finalState->numObjects = i+1;
-			finalState->updateNewObject(objOrder[i], std::make_pair(max4PCSPose[i].first, 0.f), finalState->numObjects);
+			finalState->updateNewObject(sceneObjs[i], std::make_pair(max4PCSPose[i].first, 0.f), finalState->numObjects);
 			utilities::convertToMatrix(max4PCSPose[i].first, bestPoseMat);
 			utilities::convertToWorld(bestPoseMat, camPose);
 			utilities::writePoseToFile(bestPoseMat, finalState->objects[finalState->numObjects-1].first->objName, scenePath, "debug_super4PCS/super4pcs");
@@ -902,25 +725,18 @@ namespace scene{
 		    utilities::writePoseToFile(bestPoseMat, finalState->objects[finalState->numObjects-1].first->objName, scenePath, "debug_super4PCS/super4pcs");
 		}
 		finalState->computeCost(depthImage);
-
-		#ifdef DBG_SUPER4PCS
-		    ofstream pFile;
-			pFile.open ((scenePath + "debug_super4PCS/scores.txt").c_str(), std::ofstream::out | std::ofstream::app);
-			pFile << finalState->score << " " << (float( clock () - preprocess_begin_time ) /  CLOCKS_PER_SEC) << std::endl;
-			pFile.close();
-		#endif
 	}
 
 	void Scene::readHypothesis(){
 		ifstream pPoseFile, pScoreFile, pSuper4PCSFile;
 		
-		for(int i=0;i<objOrder.size();i++){
+		for(int i=0;i<sceneObjs.size();i++){
 			Eigen::Matrix4f poseMat;
 			float bestScore = 0;
 
 			poseMat.setIdentity();
-			pPoseFile.open ((scenePath +  "debug_super4PCS/clusterPose_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
-			pScoreFile.open ((scenePath +  "debug_super4PCS/clusterScore_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
+			pPoseFile.open ((scenePath +  "debug_super4PCS/clusterPose_" + sceneObjs[i]->objName + ".txt").c_str(), std::ofstream::in);
+			pScoreFile.open ((scenePath +  "debug_super4PCS/clusterScore_" + sceneObjs[i]->objName + ".txt").c_str(), std::ofstream::in);
 
 			std::vector< std::pair <Eigen::Isometry3d, float> > clusteredPoses;
 			while(pPoseFile >> poseMat(0,0) >> poseMat(0,1) >> poseMat(0,2) >> poseMat(0,3) 
@@ -936,30 +752,26 @@ namespace scene{
 				utilities::convertToIsometry3d(poseMat, hypPose);
 
 				clusteredPoses.push_back(std::make_pair(hypPose, score));
-				// clusteredPoses.push_back(std::make_pair(hypPose, 0));
 			}
 
 			// add the best super4PCS hypothesis as well
-			
-			// Eigen::Isometry3d isoPose;
-			// Eigen::Matrix4f bestPoseMat;
-			// bestPoseMat.setIdentity();
+			Eigen::Isometry3d isoPose;
+			Eigen::Matrix4f bestPoseMat;
+			bestPoseMat.setIdentity();
 
-			// pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
-			// pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
-			// 		 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
-			// 		 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
+			pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + sceneObjs[i]->objName + ".txt").c_str(), std::ofstream::in);
+			pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
+					 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
+					 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
 
-			// pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
-			// 		 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
-			// 		 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
+			pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
+					 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
+					 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
 			
-			// utilities::convertToCamera(bestPoseMat, camPose);
-			// utilities::convertToIsometry3d(bestPoseMat, isoPose);
-			// pSuper4PCSFile.close();
-			// clusteredPoses.push_back(std::make_pair(isoPose, bestScore));
-			// clusteredPoses.push_back(std::make_pair(isoPose, 0));
-			
+			utilities::convertToCamera(bestPoseMat, camPose);
+			utilities::convertToIsometry3d(bestPoseMat, isoPose);
+			pSuper4PCSFile.close();
+			clusteredPoses.push_back(std::make_pair(isoPose, bestScore));
 			cutOffScore.push_back(searchLCPThreshold*bestScore);
 
 			unconditionedHypothesis.push_back(clusteredPoses);
@@ -969,11 +781,11 @@ namespace scene{
 
 		// create final state from super4PCS result
 		finalState->updateStateId(-1);
-		for(int i=0;i<objOrder.size();i++){
+		for(int i=0;i<sceneObjs.size();i++){
 			Eigen::Isometry3d isoPose;
 			Eigen::Matrix4f bestPoseMat;
 
-			pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + objOrder[i]->objName + ".txt").c_str(), std::ofstream::in);
+			pSuper4PCSFile.open ((scenePath +  "debug_super4PCS/super4pcs_" + sceneObjs[i]->objName + ".txt").c_str(), std::ofstream::in);
 			pSuper4PCSFile >> bestPoseMat(0,0) >> bestPoseMat(0,1) >> bestPoseMat(0,2) >> bestPoseMat(0,3) 
 					 >> bestPoseMat(1,0) >> bestPoseMat(1,1) >> bestPoseMat(1,2) >> bestPoseMat(1,3)
 					 >> bestPoseMat(2,0) >> bestPoseMat(2,1) >> bestPoseMat(2,2) >> bestPoseMat(2,3);
@@ -985,7 +797,7 @@ namespace scene{
 			utilities::convertToIsometry3d(bestPoseMat, isoPose);
 
 			finalState->numObjects = i+1;
-			finalState->updateNewObject(objOrder[i], std::make_pair(isoPose, 0.f), finalState->numObjects);
+			finalState->updateNewObject(sceneObjs[i], std::make_pair(isoPose, 0.f), finalState->numObjects);
 			finalState->render(camPose, scenePath);
 			pSuper4PCSFile.close();
 		}

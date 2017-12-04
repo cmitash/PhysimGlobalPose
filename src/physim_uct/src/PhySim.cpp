@@ -7,7 +7,7 @@ namespace physim{
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	PhySim::PhySim(){
+	PhySim::PhySim(std::vector< float> tableParams){
 		btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
 		btCollisionDispatcher* dispatcher = new	btCollisionDispatcher(collisionConfiguration);
 		btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
@@ -19,12 +19,19 @@ namespace physim{
 	/********************************* function: addTable **************************************************
 	*******************************************************************************************************/
 
-	void PhySim::addTable(float tableHt){
-		btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(50.),btScalar(50.),btScalar(50.)));
+	void PhySim::addTable(std::vector< float> tableParams){
+		btCollisionShape* groundShape = new btBoxShape(btVector3(btScalar(0.40),btScalar(0.40),btScalar(0.20)));
 
 		btTransform groundTransform;
 		groundTransform.setIdentity();
-		groundTransform.setOrigin(btVector3(0,0,-50.0 + tableHt));
+
+		groundTransform.setOrigin(btVector3(tableParams[3], tableParams[7], tableParams[11]));
+
+		btMatrix3x3 rotMat;
+		rotMat.setValue(tableParams[0], tableParams[1], tableParams[2], 
+						tableParams[4], tableParams[5], tableParams[6], 
+						tableParams[8], tableParams[9], tableParams[10]);
+		groundTransform.setBasis(rotMat);
 
 		btScalar mass(0.);
 		bool isDynamic = (mass != 0.f);

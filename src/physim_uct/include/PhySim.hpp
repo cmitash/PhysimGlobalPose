@@ -25,9 +25,9 @@ namespace physim{
 			std::map<std::string, btRigidBody*> rBodyMap;
 			std::map<std::string, btCollisionShape*> cShapes;
 
-			PhySim();
+			PhySim(std::vector< float> tableParams);
 			~PhySim();
-			void addTable(float tableHt);
+			void addTable(std::vector< float> tableParams);
 			void initRigidBody(std::string);
 			void addObject(std::string objName, Eigen::Isometry3d tform, float mass);
 			void removeObject(std::string objName);

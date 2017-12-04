@@ -8,6 +8,7 @@ namespace state{
 	class State{
 		public:
 			State(unsigned int numObjects);
+			~State();
 			void expand();
 			void copyParent(State*);
 			void updateNewObject(apc_objects::APCObjects*, std::pair <Eigen::Isometry3d, float>, int maxDepth);

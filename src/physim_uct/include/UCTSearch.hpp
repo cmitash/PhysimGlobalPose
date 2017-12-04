@@ -9,7 +9,7 @@ namespace uct_search{
 	
 	class UCTSearch{
 		public:
-			UCTSearch(std::vector<apc_objects::APCObjects*> objOrder, 
+			UCTSearch(std::vector<apc_objects::APCObjects*> objOrder, std::vector<float> tableParams,
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
 					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, std::vector<float> cutOffScore, int rootId);
 			~UCTSearch();

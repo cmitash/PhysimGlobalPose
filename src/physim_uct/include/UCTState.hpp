@@ -9,6 +9,7 @@ namespace uct_state{
 	class UCTState{
 		public:
 			UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent);
+			~UCTState();
 			void copyParent(UCTState*);
 			void updateNewObject(apc_objects::APCObjects*, std::pair <Eigen::Isometry3d, float>, int maxDepth);
 			void render(Eigen::Matrix4f, std::string);
@@ -16,7 +17,7 @@ namespace uct_state{
 			void computeCost(cv::Mat obsImg);
 			void performTrICP(std::string scenePath, float trimPercentage);
 			void correctPhysics(physim::PhySim*, Eigen::Matrix4f, std::string);
-			UCTState* getBestChild();
+			UCTState* getBestChild(std::string scenePath);
 			bool isFullyExpanded();
 			void updateChildHval(std::vector< std::pair <Eigen::Isometry3d, float> > childStates);
 

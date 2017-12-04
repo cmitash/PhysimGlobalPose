@@ -88,6 +88,7 @@ namespace utilities{
 	Eigen::Vector3f rotationMatrixToEulerAngles(Eigen::Matrix3f R);
 	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename);
 	void writeScoreToFile(float score, std::string objName, std::string scenePath, std::string filename);
+	void toTransformationMatrix(Eigen::Matrix4f& camPose, std::vector<double> camPose7D);
 }
 
 #endif

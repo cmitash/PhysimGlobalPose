@@ -10,9 +10,13 @@ namespace scene{
 	class Scene{
 		public:
 			Scene(std::string scenePath);
+			~Scene();
 			void performRCNNDetection();
 			void get3DSegments();
+			void getGTSegments();
+			void getSegmentationPrior();
 			void removeTable();
+			void getTableParams();
 			void getOrder();
 			void readHypothesis();
 
@@ -45,10 +49,10 @@ namespace scene{
 			cv::Mat colorImage, depthImage;
 			PointCloud::Ptr sceneCloud;
 			std::vector<apc_objects::APCObjects*> sceneObjs;
-			std::vector<apc_objects::APCObjects*> objOrder;
 			std::vector<std::vector<apc_objects::APCObjects*> > independentTrees;
 			std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis;
-			
+			std::vector< float> tableParams;
+
 			Eigen::Matrix4f camPose;
 			Eigen::Matrix3f camIntrinsic;
 			

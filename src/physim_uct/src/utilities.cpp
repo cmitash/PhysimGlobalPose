@@ -45,6 +45,7 @@ namespace utilities{
 	*******************************************************************************************************/
 
 	void readDepthImage(cv::Mat &depthImg, std::string path){
+		std::cout << path << std::endl;
 		cv::Mat depthImgRaw = cv::imread(path, CV_16UC1);
 		depthImg = cv::Mat::zeros(depthImgRaw.rows, depthImgRaw.cols, CV_32FC1);
 		for(int u=0; u<depthImgRaw.rows; u++)
@@ -268,7 +269,30 @@ namespace utilities{
 		q.y() = cy * cr * sp + sy * sr * cp;
 		q.z() = sy * cr * cp - cy * sr * sp;
 	}
-	
+		
+	/********************************* function: toTransformationMatrix ************************************
+	*******************************************************************************************************/
+
+	void toTransformationMatrix(Eigen::Matrix4f& camPose, std::vector<double> camPose7D){
+		camPose(0,3) = camPose7D[0];
+		camPose(1,3) = camPose7D[1];
+		camPose(2,3) = camPose7D[2];
+		camPose(3,3) = 1;
+
+		Eigen::Quaternionf q;
+		q.w() = camPose7D[3];
+		q.x() = camPose7D[4];
+		q.y() = camPose7D[5];
+		q.z() = camPose7D[6];
+		Eigen::Matrix3f rotMat;
+		rotMat = q.toRotationMatrix();
+
+		for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++){
+				camPose(ii,jj) = rotMat(ii,jj);
+			}
+	}
+
 	/********************************* function: rotationMatrixToEulerAngles *******************************
 	*******************************************************************************************************/
 	// Calculates rotation matrix to euler angles

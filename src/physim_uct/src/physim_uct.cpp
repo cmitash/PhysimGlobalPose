@@ -11,11 +11,6 @@
 int generateNewHypothesis = 0;
 int performSearch = 2;
 
-// evaluation mode
-int evalPoseDataset17 = 0;
-int evalDatasetSize = 42;
-std::string dataset_path = "/home/chaitanya/PoseDataset17/";
-
 // Global definations
 std::string env_p;
 std::vector<apc_objects::APCObjects*> Objects;
@@ -71,7 +66,7 @@ static void callHeuristicSearch(scene::Scene *currScene){
       hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
     }
 
-    search::Search *HSearch = new search::Search(currScene->independentTrees[treeIdx], hypothesis,
+    search::Search *HSearch = new search::Search(currScene->independentTrees[treeIdx], currScene->tableParams, hypothesis,
                                   currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore, treeIdx);
     HSearch->heuristicSearch();
 
@@ -98,7 +93,7 @@ static void callUCTSearch(scene::Scene *currScene){
       hypothesis.push_back(currScene->unconditionedHypothesis[poseWritten + jj]);
     }
 
-    uct_search::UCTSearch *UCTSearch = new uct_search::UCTSearch(currScene->independentTrees[treeIdx], hypothesis,
+    uct_search::UCTSearch *UCTSearch = new uct_search::UCTSearch(currScene->independentTrees[treeIdx], currScene->tableParams, hypothesis,
                                 currScene->scenePath, currScene->camPose, currScene->depthImage, currScene->cutOffScore, treeIdx);
     UCTSearch->performSearch();
 
@@ -117,6 +112,7 @@ static void callUCTSearch(scene::Scene *currScene){
 
 bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
                   physim_uct::EstimateObjectPose::Response &res){
+
   std::string scenePath(req.SceneFiles);
   system(("rm -rf " + scenePath + "debug_search").c_str());
   system(("mkdir " + scenePath + "debug_search").c_str());
@@ -131,12 +127,22 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
            <<"camera pose: " << std::endl << currScene->camPose << std::endl
            <<"camera intrinsics: "<< std::endl << currScene->camIntrinsic << std::endl;
 
-  // Initialize the scene
+  // Remove the table
   currScene->removeTable();
-  currScene->performRCNNDetection();
-  currScene->get3DSegments();
+  currScene->getTableParams();
+
+  // Perform RCNN detection and extract corresponding segment
+  // currScene->performRCNNDetection();
+  // currScene->get3DSegments();
+
+  // Use ground truth segmentation result
+  currScene->getGTSegments();
+  currScene->getSegmentationPrior();
+
+  // Use ground truth object order
   currScene->getOrder();
 
+  // Whether to generate a new set of pose hypotheses
   if(generateNewHypothesis == 1)
     currScene->computeHypothesisSet();
   else
@@ -151,6 +157,10 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
   // copy final results to rosmessage
   cv::Mat renderedImg = cv::Mat::zeros(480, 640, CV_32FC1);
   cv::Mat renderedClassImg = cv::Mat::zeros(480, 640, CV_8UC1);
+
+  system(("rm " + scenePath + "result.txt").c_str());
+
+  // iterate over scene objects
   for(int ii=0; ii<currScene->finalState->numObjects; ii++){
     physim_uct::ObjectPose pose;
     geometry_msgs::Pose msg;
@@ -161,16 +171,33 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     utilities::convertToMatrix(currScene->finalState->objects[ii].second, tform);
     pcl::transformPointCloud(*currScene->finalState->objects[ii].first->pclModel, *transformedCloud, tform);
     std::string input1 = scenePath + "debug_search/result_" + currScene->finalState->objects[ii].first->objName + ".ply";
-    pcl::io::savePLYFile(input1, *transformedCloud);
+
+    PointCloudRGB::Ptr cloud_xyzrgb (new PointCloudRGB);
+    cloud_xyzrgb->points.resize(transformedCloud->size());
+    for (size_t i = 0; i < transformedCloud->points.size(); i++) {
+        cloud_xyzrgb->points[i].x = transformedCloud->points[i].x;
+        cloud_xyzrgb->points[i].y = transformedCloud->points[i].y;
+        cloud_xyzrgb->points[i].z = transformedCloud->points[i].z;
+        cloud_xyzrgb->points[i].r = 0;
+        cloud_xyzrgb->points[i].g = 0;
+        cloud_xyzrgb->points[i].b = 1;
+    }
+    pcl::io::savePLYFile(input1, *cloud_xyzrgb);
     #endif
 
+    // To visualize the results
     vizResults(currScene->camPose, scenePath, currScene->finalState->objects[ii].first,
       currScene->finalState->objects[ii].second, renderedImg, renderedClassImg, ii+1);
     utilities::writeDepthImage(renderedImg, scenePath + "debug_search/renderFinalDepth.png");
     utilities::writeClassImage(renderedClassImg, currScene->colorImage, scenePath + "debug_search/renderFinalClass.png");
 
-    Eigen::Vector3d trans = currScene->finalState->objects[ii].second.translation();
-    Eigen::Quaterniond rot(currScene->finalState->objects[ii].second.rotation());
+    Eigen::Matrix4f finalPoseMat;
+    Eigen::Isometry3d finalPoseIsometric;
+    utilities::convertToMatrix(currScene->finalState->objects[ii].second, finalPoseMat);
+    utilities::convertToWorld(finalPoseMat, currScene->camPose);
+    utilities::convertToIsometry3d(finalPoseMat, finalPoseIsometric);
+    Eigen::Vector3d trans = finalPoseIsometric.translation();
+    Eigen::Quaterniond rot(finalPoseIsometric.rotation());
 
     msg.position.x = trans[0];
     msg.position.y = trans[1];
@@ -182,46 +209,17 @@ bool estimatePose(physim_uct::EstimateObjectPose::Request &req,
     pose.label = currScene->finalState->objects[ii].first->objName;
     pose.pose = msg;
     res.Objects.push_back(pose);
+
+    ofstream pFile;
+    pFile.open ((scenePath + "result.txt").c_str(), std::ofstream::out | std::ofstream::app);
+    pFile << trans[0] << ", " << trans[1] << ", " << trans[2] 
+      << ", " << rot.w() << ", " << rot.x() << ", " << rot.y() << ", " << rot.z() << std::endl;
+    pFile.close();
   }
   
+  delete currScene;
+
   return true;
-}
-
-/********************************* function: evaluatePoseDataset17 **************************************
-********************************************************************************************************/
-
-void evaluatePoseDataset17(){
-  evaluate::Evaluate *pEval = new evaluate::Evaluate();
-  system(("rm " + dataset_path + "result.txt").c_str());
-  system(("rm " + dataset_path + "resultAllHypo.txt").c_str());
-  system(("rm " + dataset_path + "resultClusterHypo.txt").c_str());
-  system(("rm " + dataset_path + "resultSearch.txt").c_str());
-  system(("rm " + dataset_path + "resultSuper4pcs.txt").c_str());
-  system(("rm " + dataset_path + "resultSuper4pcsICP.txt").c_str());
-
-  for(int i=1; i<=evalDatasetSize; i++){
-    char buf[50];
-    sprintf(buf, (dataset_path + "table/scene-%04d/").c_str(), i);
-    std::string scenePath(buf);
-    std::cout << scenePath << std::endl;
-    scene::Scene *currScene = new scene::Scene(scenePath);
-    std::cout<<"number of objects: " << currScene->numObjects << std::endl
-             <<"camera pose: " << std::endl << currScene->camPose << std::endl
-             <<"camera intrinsics: "<< std::endl << currScene->camIntrinsic << std::endl;
-    currScene->removeTable();
-    currScene->performRCNNDetection();
-    currScene->get3DSegments();
-    currScene->getOrder();
-    pEval->readGroundTruth(currScene);
-    pEval->getSuper4pcsError(currScene, i-1);
-    pEval->getAllHypoError(currScene, i-1);
-    pEval->getClusterHypoError(currScene, i-1);
-    pEval->getSearchResults(currScene, i-1);
-    pEval->getPCAError(currScene, i-1);
-    
-    delete currScene;
-  }
-  pEval->writeResults();
 }
 
 /********************************* function: loadObjects ***********************************************
@@ -267,6 +265,8 @@ void loadObjects(std::vector<apc_objects::APCObjects*> &Objects){
 ********************************************************************************************************/
 
 int main(int argc, char **argv){
+  pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
+
   ros::init(argc, argv, "physim_node");
   ros::NodeHandle n;
   
@@ -282,11 +282,6 @@ int main(int argc, char **argv){
     exit(-1);
   }
   loadObjects(Objects);
-
-  if(evalPoseDataset17 == 1){
-    evaluatePoseDataset17();
-    exit(-1);
-  }
 
   ros::ServiceServer service = n.advertiseService("pose_estimation", estimatePose);
   ROS_INFO("Ready for pose estimation");

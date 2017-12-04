@@ -77,11 +77,11 @@ static void getRangeEMDComputation(PointCloud::Ptr pclSegment, Eigen::Matrix4f c
 void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 	std:: cout << "Evaluate::getSuper4pcsError" << std::endl;
 
-	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+	for(int obIdx=0;obIdx<currScene->sceneObjs.size();obIdx++){
 		ifstream super4pcsFile;
 		Eigen::Matrix4f testPose;
 		testPose.setIdentity();
-		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/super4pcs_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/super4pcs_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 
 		float rotErr, transErr, emdErr=0;
 		super4pcsFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
@@ -92,8 +92,8 @@ void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 	
 		std::pair<float, float> xrange, yrange, zrange;
 		if(evalEMD){
-			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			getRangeEMDComputation(currScene->sceneObjs[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 		}
 		rotErr_super4pcs[sceneIdx*3 + obIdx] = rotErr;
 		transErr_super4pcs[sceneIdx*3 + obIdx] = transErr;
@@ -113,7 +113,7 @@ void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 		transErr_super4pcsICP[sceneIdx*3 + obIdx] = transErr;
 
 		if(evalEMD){
-			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);	
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);	
 		}
 		emdErr_super4pcsICP[sceneIdx*3 + obIdx] = emdErr;
 
@@ -130,7 +130,7 @@ void Evaluate::getSuper4pcsError(scene::Scene *currScene, int sceneIdx){
 void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 	std::cout << "Evaluate::getSearchResults" << std::endl;
 
-	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+	for(int obIdx=0;obIdx<currScene->sceneObjs.size();obIdx++){
 		ifstream super4pcsFile, timeFile;
 		Eigen::Matrix4f testPose, finalState;
 		float rotErr, transErr, emdErr=0;
@@ -140,8 +140,8 @@ void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 		std::pair<float, float> xrange, yrange, zrange;
 
 		testPose.setIdentity();
-		super4pcsFile.open((currScene->scenePath + "debug_search/after_search_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
-		timeFile.open((currScene->scenePath + "debug_search/times_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		super4pcsFile.open((currScene->scenePath + "debug_search/after_search_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		timeFile.open((currScene->scenePath + "debug_search/times_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 		
 		while(super4pcsFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
 					 >> testPose(1,0) >> testPose(1,1) >> testPose(1,2) >> testPose(1,3)
@@ -155,14 +155,14 @@ void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 			transErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(transErr, time));
 
 			ofstream plotFile;
-			plotFile.open((currScene->scenePath + "debug_search/plotData_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ofstream::out|std::ofstream::app);
+			plotFile.open((currScene->scenePath + "debug_search/plotData_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ofstream::out|std::ofstream::app);
 			plotFile << rotErr << " " << transErr << " " << emdErr << " " << time << " " << score << std::endl;
 			plotFile.close();
 		}
 
 		if(evalEMD){
-			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			getRangeEMDComputation(currScene->sceneObjs[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 		}
 		emdErr_searchFinal[sceneIdx*3 + obIdx].push_back(std::make_pair(emdErr, time));
 
@@ -177,7 +177,7 @@ void Evaluate::getSearchResults(scene::Scene *currScene, int sceneIdx){
 void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 	std::cout << "Evaluate::getPCAError" << std::endl;
 
-	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+	for(int obIdx=0;obIdx<currScene->sceneObjs.size();obIdx++){
 		ifstream pcaFile;
 		Eigen::Matrix4f testPose;
 		float rotErr, transErr, emdErr=0;
@@ -185,7 +185,7 @@ void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 		std::pair<float, float> xrange, yrange, zrange;
 
 		testPose.setIdentity();
-		pcaFile.open((currScene->scenePath + "RCNN_PCA_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		pcaFile.open((currScene->scenePath + "RCNN_PCA_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 		
 		while(pcaFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
 					 >> testPose(1,0) >> testPose(1,1) >> testPose(1,2) >> testPose(1,3)
@@ -197,7 +197,7 @@ void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 			transErr_PCA[sceneIdx*3 + obIdx] = transErr;
 
 			ofstream plotFile;
-			plotFile.open((currScene->scenePath + "PCAErr_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ofstream::out);
+			plotFile.open((currScene->scenePath + "PCAErr_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ofstream::out);
 			plotFile << rotErr << " " << transErr << " " << emdErr << std::endl;
 			plotFile.close();
 
@@ -209,8 +209,8 @@ void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 		}
 
 		if(evalEMD){
-			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			getRangeEMDComputation(currScene->sceneObjs[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(testPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 		}
 		emdErr_PCA[sceneIdx*3 + obIdx] = emdErr;
 
@@ -224,14 +224,14 @@ void Evaluate::getPCAError(scene::Scene *currScene, int sceneIdx){
 void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
 	std::cout << "Evaluate::getAllHypoError" << std::endl;
 
-	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+	for(int obIdx=0;obIdx<currScene->sceneObjs.size();obIdx++){
 		ifstream super4pcsFile;
 		Eigen::Matrix4f testPose, bestRotPose, bestTransPose;
 		float rotErr, transErr, emdErr = 0;
 		std::pair<float, float> xrange, yrange, zrange;
 
 		testPose.setIdentity();
-		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/allPose_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/allPose_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 		
 		int count = 0;
 		while(super4pcsFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
@@ -257,10 +257,10 @@ void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
 		}
 
 		if(evalEMD){
-			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			getRangeEMDComputation(currScene->sceneObjs[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 			emdErr_allhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
-			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 			emdErr_allhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
 		}
 
@@ -279,14 +279,14 @@ void Evaluate::getAllHypoError(scene::Scene *currScene, int sceneIdx){
 void Evaluate::getClusterHypoError(scene::Scene *currScene, int sceneIdx){
 	std::cout << "Evaluate::getClusterHypoError" << std::endl;
 
-	for(int obIdx=0;obIdx<currScene->objOrder.size();obIdx++){
+	for(int obIdx=0;obIdx<currScene->sceneObjs.size();obIdx++){
 		ifstream super4pcsFile;
 		Eigen::Matrix4f testPose, bestRotPose, bestTransPose;
 		float rotErr, transErr, emdErr=0;
 		std::pair<float, float> xrange, yrange, zrange;
 
 		testPose.setIdentity();
-		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/clusterPose_" + currScene->objOrder[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
+		super4pcsFile.open((currScene->scenePath + "debug_super4PCS/clusterPose_" + currScene->sceneObjs[obIdx]->objName + ".txt").c_str(), std::ifstream::in);
 
 		while(super4pcsFile >> testPose(0,0) >> testPose(0,1) >> testPose(0,2) >> testPose(0,3) 
 					 >> testPose(1,0) >> testPose(1,1) >> testPose(1,2) >> testPose(1,3)
@@ -308,10 +308,10 @@ void Evaluate::getClusterHypoError(scene::Scene *currScene, int sceneIdx){
 		}
 
 		if(evalEMD){
-			getRangeEMDComputation(currScene->objOrder[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
-			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			getRangeEMDComputation(currScene->sceneObjs[obIdx]->pclSegment, currScene->camPose, xrange, yrange, zrange);
+			utilities::getEMDError(bestRotPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 			emdErr_clusterhypothesisMinRot[sceneIdx*3 + obIdx] = emdErr;
-			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->objOrder[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
+			utilities::getEMDError(bestTransPose, groundTruth[obIdx].second, currScene->sceneObjs[obIdx]->pclModel, emdErr, xrange, yrange, zrange);
 			emdErr_clusterhypothesisMintrans[sceneIdx*3 + obIdx] = emdErr;
 		}
 
@@ -332,16 +332,16 @@ void Evaluate::readGroundTruth(scene::Scene *currScene){
 	std::cout << "Evaluate::readGroundTruth" << std::endl;
 
 	groundTruth.clear();
-	for(int i=0;i<currScene->objOrder.size();i++){
+	for(int i=0;i<currScene->sceneObjs.size();i++){
 		ifstream gtPoseFile;
 		Eigen::Matrix4f gtPose;
 		gtPose.setIdentity();
-		gtPoseFile.open((currScene->scenePath + "gt_pose_" + currScene->objOrder[i]->objName + ".txt").c_str(), std::ifstream::in);
+		gtPoseFile.open((currScene->scenePath + "gt_pose_" + currScene->sceneObjs[i]->objName + ".txt").c_str(), std::ifstream::in);
 		gtPoseFile >> gtPose(0,0) >> gtPose(0,1) >> gtPose(0,2) >> gtPose(0,3) 
 				 >> gtPose(1,0) >> gtPose(1,1) >> gtPose(1,2) >> gtPose(1,3)
 				 >> gtPose(2,0) >> gtPose(2,1) >> gtPose(2,2) >> gtPose(2,3);
 		gtPoseFile.close();
-		groundTruth.push_back(std::make_pair(currScene->objOrder[i], gtPose));
+		groundTruth.push_back(std::make_pair(currScene->sceneObjs[i], gtPose));
 	}
 }
 
