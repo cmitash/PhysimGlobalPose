@@ -56,6 +56,9 @@ public:
   bool WriteMatrix(const string& name,
                    const Eigen::Ref<const Eigen::Matrix<double, 4, 4> >& mat,
                    MATRIX_MODE mode);
+  bool
+  WritePly(string name, const vector<Point3D> &v,
+           const vector<typename Point3D::VectorType> &normals);
 private:
   bool
   ReadPly(const char *name, vector<Point3D> &v, vector<typename Point3D::VectorType> &normals);
@@ -80,11 +83,6 @@ private:
           vector<typename Point3D::VectorType> &normals,
           vector<tripple> &tris,
           vector<std::string> &mtls);
-
-  bool
-  WritePly(string name, const vector<Point3D> &v,
-           const vector<typename Point3D::VectorType> &normals);
-
   bool
   WriteObj(string name, const vector<Point3D> &v,
            const vector<Eigen::Matrix2f> &tex_coords,

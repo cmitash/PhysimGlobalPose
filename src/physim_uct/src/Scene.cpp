@@ -580,8 +580,29 @@ namespace scene{
 
 		std::string input1 = scenePath + "debug_super4PCS/pclSegment_" + obj->objName + ".ply";
 		std::string input2 = scenePath + "debug_super4PCS/pclModel_" + obj->objName + ".ply";
-		pcl::io::savePLYFile(input1, *obj->pclSegment);
-		pcl::io::savePLYFile(input2, *obj->pclModel);
+
+		// saving the segment cloud with normal
+		pcl::NormalEstimation<pcl::PointXYZ, pcl::PointNormal> ne;
+		ne.setInputCloud (obj->pclSegment);
+		pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
+		ne.setSearchMethod (tree);
+		pcl::PointCloud<pcl::PointNormal>::Ptr cloud_normals_segment (new pcl::PointCloud<pcl::PointNormal>);
+		copyPointCloud(*obj->pclSegment, *cloud_normals_segment);
+		ne.setRadiusSearch (0.01);
+		ne.compute (*cloud_normals_segment);
+
+		ne.setInputCloud (obj->pclModel);
+		ne.setSearchMethod (tree);
+		pcl::PointCloud<pcl::PointNormal>::Ptr cloud_normals_model (new pcl::PointCloud<pcl::PointNormal>);
+		copyPointCloud(*obj->pclModel, *cloud_normals_model);
+		ne.setRadiusSearch (0.01);
+		ne.compute (*cloud_normals_model);
+
+		pcl::io::savePLYFile(input1, *cloud_normals_segment);
+		pcl::io::savePLYFile(input2, *cloud_normals_model);
+
+		// pcl::io::savePLYFile(input1, *obj->pclSegment);
+		// pcl::io::savePLYFile(input2, *obj->pclModel);
 		
 		getProbableTransformsSuper4PCS(input1, input2, bestPose, bestscore, allSuperPCSposes);
 		bestLCPPose = std::make_pair(bestPose, bestscore);

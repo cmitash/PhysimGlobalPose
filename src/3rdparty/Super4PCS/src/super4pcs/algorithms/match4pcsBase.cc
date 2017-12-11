@@ -55,9 +55,8 @@
 #include "sampling.h"
 #include "accelerators/kdtree.h"
 
+#include "io/io.h"
 const double pi = std::acos(-1);
-
-
 
 // Compute the closest points between two 3D line segments and obtain the two
 // invariants corresponding to the closet points. This is the "intersection"
@@ -219,8 +218,10 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
         std::cout << "(P) More samples requested than available: use whole cloud" << std::endl;
         sampled_P_3D_ = P;
     }
-
-
+    IOManager iomananger;
+    vector<typename Point3D::VectorType> normals;
+    std::cout << "Super4PCS::Match4PCSBase::init:P_size: " << P.size() << std::endl;
+    std::cout << "Super4PCS::Match4PCSBase::init:sampled_P_3D_size: " << sampled_P_3D_.size() << std::endl;
 
     // prepare Q
     if (Q.size() > options_.sample_size){
@@ -240,7 +241,9 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
         std::cout << "(Q) More samples requested than available: use whole cloud" << std::endl;
         sampled_Q_3D_ = Q;
     }
-
+    iomananger.WritePly("/home/chaitanya/Desktop/abc.ply", sampled_P_3D_, normals);
+    std::cout << "Super4PCS::Match4PCSBase::init:Q_size: " << Q.size() << std::endl;
+    std::cout << "Super4PCS::Match4PCSBase::init:sampled_Q_3D_size: " << sampled_Q_3D_.size() << std::endl;
 
     // Compute the centroids.
     for (int i = 0; i < sampled_P_3D_.size(); ++i) {
@@ -291,12 +294,18 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     Scalar first_estimation =
             log(kSmallError) / log(1.0 - pow(options_.overlap_estimation,
                                              static_cast<Scalar>(kMinNumberOfTrials)));
+
+    std::cout << "Super4PCS::Match4PCSBase::init:first_estimation: " << first_estimation << std::endl;
+    
     // We use a simple heuristic to elevate the probability to a reasonable value
     // given that we don't simply sample from P, but instead, we bound the
     // distance between the points in the base as a fraction of the diameter.
     number_of_trials_ =
             static_cast<int>(first_estimation * (P_diameter_ / kDiameterFraction) /
                              max_base_diameter_);
+
+    std::cout << "Super4PCS::Match4PCSBase::init:number_of_trials_: " << number_of_trials_ << std::endl;
+
     if (options_.terminate_threshold < 0)
         options_.terminate_threshold = options_.overlap_estimation;
     if (number_of_trials_ < kMinNumberOfTrials)
@@ -905,6 +914,9 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
 
   Eigen::Matrix<Scalar, 4, 4> transformation;
   transformation = MatrixType::Identity();
+
+  std::cout << "Super4PCS::Match4PCSBase::ComputeTransformation:number_of_trials_: " << number_of_trials_ << std::endl;
+  
   Perform_N_steps(number_of_trials_, transformation, Q, allPose);
 
   bestPose = convertToIsometry3d(transformation);
@@ -939,6 +951,9 @@ bool Match4PCSBase::Perform_N_steps(int n,
   for (int i = current_trial_; i < current_trial_ + n; ++i) {
     ok = TryOneBase(allPose);
 
+    std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:BaseNumber: " << i+1 << std::endl;
+    std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:TotalCongruentQuad: " << allPose.size() << std::endl;
+    
     Scalar fraction_try  = Scalar(i) / Scalar(number_of_trials_);
     Scalar fraction_time = 
 		std::chrono::duration_cast<std::chrono::seconds>
@@ -1039,15 +1054,19 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
   // Compute normal angles.
   const Scalar normal_angle1 = (base_3D_[0].normal() - base_3D_[1].normal()).norm();
   const Scalar normal_angle2 = (base_3D_[2].normal() - base_3D_[3].normal()).norm();
-
+  
+  clock_t t0 = clock();
+  
   ExtractPairs(distance1, normal_angle1, distance_factor * options_.delta, 0,
                   1, &pairs1);
   ExtractPairs(distance2, normal_angle2, distance_factor * options_.delta, 2,
                   3, &pairs2);
 
-//  std::cout << "Pair creation output: \n"
-//            << pairs1.size() << " - "
-//            << pairs2.size() << std::endl;
+  std::cout << "Super4PCS::TryOneBase::Time after pair extraction: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
+
+  std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"
+           << pairs1.size() << " - "
+           << pairs2.size() << std::endl;
 
   if (pairs1.size() == 0 || pairs2.size() == 0) {
     return false;
@@ -1063,11 +1082,15 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
     return false;
   }
 
+  std::cout << "Super4PCS::TryOneBase::Time after finding congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
+
   size_t nb = 0;
 
   bool match = TryCongruentSet(base_id1, base_id2, base_id3, base_id4,
                                congruent_quads,
                                nb, allPose);
+
+  std::cout << "Super4PCS::TryOneBase::Time after trying congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
 
   //if (nb != 0)
   //    std::cout << "Congruent quads: (" << nb << ")    " << std::endl;

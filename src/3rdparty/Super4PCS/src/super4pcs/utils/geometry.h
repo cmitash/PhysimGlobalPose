@@ -71,7 +71,7 @@ static inline void CleanInvalidNormals( PointContainer &v,
         nb++;
       }else{
         (*itN).normalize();
-        (*itV).normalize();
+        // (*itV).normalize();
       }
     }
 

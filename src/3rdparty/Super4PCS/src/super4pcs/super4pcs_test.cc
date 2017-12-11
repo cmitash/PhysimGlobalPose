@@ -26,13 +26,13 @@ double overlap = 0.5;
 double max_color = -1;
 
 // Number of sampled points in both files. The 4PCS allows a very aggressive sampling.
-int n_points = 300;
+int n_points = 1500;
 
 // Maximum angle (degrees) between corresponded normals.
-double norm_diff = -1;
+double norm_diff = 1;
 
 // Maximum allowed computation time.
-int max_time_seconds = 1;
+int max_time_seconds = 10;
 
 bool use_super4pcs = true;
 

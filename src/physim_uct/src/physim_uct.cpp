@@ -8,8 +8,8 @@
 #include <physim_uct/ObjectPose.h>
 
 // mode of operation
-int generateNewHypothesis = 0;
-int performSearch = 2;
+int generateNewHypothesis = 1;
+int performSearch = 0;
 
 // Global definations
 std::string env_p;

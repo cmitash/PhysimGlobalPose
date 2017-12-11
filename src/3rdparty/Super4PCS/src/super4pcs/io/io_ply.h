@@ -284,7 +284,7 @@ readASCII1Body (const std::string & filename,
                 fscanf (in, "%f", &v[j]);
             for (unsigned int j = 0;  j < 3;  j++)
                 fscanf (in, "%i", &rgb_buff[j]);
-        }else if (numOfVertexProperties==7){
+        }else if (numOfVertexProperties==7 && haveColor){
             for (unsigned int j = 0;  j < 3;  j++)
                 fscanf (in, "%f", &v[j]);
             for (unsigned int j = 0;  j < 4;  j++)
@@ -296,19 +296,17 @@ readASCII1Body (const std::string & filename,
 
         vertex.emplace_back( v[0],v[1],v[2] );
 
-        if (numOfVertexProperties == 6){
+        if (numOfVertexProperties == 6 || numOfVertexProperties == 7){
             if (haveColor){
                 rgb << rgb_buff[0], rgb_buff[1], rgb_buff[2];
                 vertex.back().set_rgb(rgb);
 
             }else{
+                std::cout << "point read: " << v[0] << " " << v[1] << " " << v[2] << " " << v[3] << " " << v[4] << " " << v[5] << std::endl;
                 n << v[3], v[4], v[5];
                 normal.push_back (n);
                 vertex.back().set_normal(n);
             }
-        }else if (numOfVertexProperties == 7){
-            rgb << rgb_buff[0], rgb_buff[1], rgb_buff[2];
-            vertex.back().set_rgb(rgb);
         }else if (numOfVertexProperties == 9 || numOfVertexProperties == 10){
             n << v[3], v[4], v[5];
             rgb << rgb_buff[0], rgb_buff[1], rgb_buff[2];

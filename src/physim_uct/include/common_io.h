@@ -47,6 +47,9 @@
 #include <pcl/recognition/ransac_based/auxiliary.h>
 #include <pcl/recognition/ransac_based/trimmed_icp.h>
 
+// For normal estimation
+#include <pcl/features/normal_3d.h>
+
 #include <geometry_msgs/Pose.h>
 
 // definitions
