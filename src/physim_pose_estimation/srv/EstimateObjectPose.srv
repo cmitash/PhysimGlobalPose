@@ -1,0 +1,10 @@
+string OperationMode # APC/YCB/CAM
+string SceneFiles # Directory containing RGB-D frames of the target scene
+string SegmentationMode
+string HypothesisGenerationMode
+string HypothesisVerificationMode
+
+---
+
+# Detection information for each candidate object
+ObjectPose[] Objects

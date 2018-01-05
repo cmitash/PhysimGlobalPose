@@ -1,0 +1,150 @@
+objects:
+  num_objects: 21
+  modelDiscretization: 0.005
+  object_1:
+    name: '002_master_chef_can'
+    type: 'YCB'
+    location_obj: '002_master_chef_can/textured.ply'
+    location_pcd: '002_master_chef_can/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 1
+  object_2:
+    name: '003_cracker_box'
+    type: 'YCB'
+    location_obj: '003_cracker_box/textured.obj'
+    location_pcd: '003_cracker_box/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 2
+  object_3:
+    name: '004_sugar_box'
+    type: 'YCB'
+    location_obj: '004_sugar_box/textured.obj'
+    location_pcd: '004_sugar_box/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 3
+  object_4:
+    name: '005_tomato_soup_can'
+    type: 'YCB'
+    location_obj: '005_tomato_soup_can/textured.obj'
+    location_pcd: '005_tomato_soup_can/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 4
+  object_5:
+    name: '006_mustard_bottle'
+    type: 'YCB'
+    location_obj: '006_mustard_bottle/textured.obj'
+    location_pcd: '006_mustard_bottle/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 5
+  object_6:
+    name: '007_tuna_fish_can'
+    type: 'YCB'
+    location_obj: '007_tuna_fish_can/textured.ply'
+    location_pcd: '007_tuna_fish_can/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 6
+  object_7:
+    name: '008_pudding_box'
+    type: 'YCB'
+    location_obj: '008_pudding_box/textured.obj'
+    location_pcd: '008_pudding_box/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 7
+  object_8:
+    name: '009_gelatin_box'
+    type: 'YCB'
+    location_obj: '009_gelatin_box/textured.obj'
+    location_pcd: '009_gelatin_box/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 8
+  object_9:
+    name: '010_potted_meat_can'
+    type: 'YCB'
+    location_obj: '010_potted_meat_can/textured.obj'
+    location_pcd: '010_potted_meat_can/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 9
+  object_10:
+    name: '011_banana'
+    type: 'YCB'
+    location_obj: '011_banana/textured.obj'
+    location_pcd: '011_banana/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 10
+  object_11:
+    name: '019_pitcher_base'
+    type: 'YCB'
+    location_obj: '019_pitcher_base/textured.obj'
+    location_pcd: '019_pitcher_base/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 11
+  object_12:
+    name: '021_bleach_cleanser'
+    type: 'YCB'
+    location_obj: '021_bleach_cleanser/textured.obj'
+    location_pcd: '021_bleach_cleanser/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 12
+  object_13:
+    name: '024_bowl'
+    type: 'YCB'
+    location_obj: '024_bowl/textured.obj'
+    location_pcd: '024_bowl/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 13
+  object_14:
+    name: '025_mug'
+    type: 'YCB'
+    location_obj: '025_mug/textured.ply'
+    location_pcd: '025_mug/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 14
+  object_15:
+    name: '035_power_drill'
+    type: 'YCB'
+    location_obj: '035_power_drill/textured.obj'
+    location_pcd: '035_power_drill/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 15
+  object_16:
+    name: '036_wood_block'
+    type: 'YCB'
+    location_obj: '036_wood_block/textured.obj'
+    location_pcd: '036_wood_block/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 16
+  object_17:
+    name: '037_scissors'
+    type: 'YCB'
+    location_obj: '037_scissors/textured.obj'
+    location_pcd: '037_scissors/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 17
+  object_18:
+    name: '040_large_marker'
+    type: 'YCB'
+    location_obj: '040_large_marker/textured.obj'
+    location_pcd: '040_large_marker/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 18
+  object_19:
+    name: '051_large_clamp'
+    type: 'YCB'
+    location_obj: '051_large_clamp/textured.ply'
+    location_pcd: '051_large_clamp/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 19
+  object_20:
+    name: '052_extra_large_clamp'
+    type: 'YCB'
+    location_obj: '052_extra_large_clamp/textured.ply'
+    location_pcd: '052_extra_large_clamp/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 20
+  object_21:
+    name: '061_foam_brick'
+    type: 'YCB'
+    location_obj: '061_foam_brick/textured.obj'
+    location_pcd: '061_foam_brick/textured.pcd'
+    symmetry: [0, 0, 0]
+    classId: 21

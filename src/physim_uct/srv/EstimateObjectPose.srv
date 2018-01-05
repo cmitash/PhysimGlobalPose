@@ -1,7 +1,0 @@
-# List of candidate objects
-string SceneFiles # Directory containing RGB-D frames of the target scene
-
----
-
-# Detection information for each candidate object
-ObjectPose[] Objects

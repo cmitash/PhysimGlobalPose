@@ -1,1 +1,5 @@
 models/
+build/
+devel/
+*.hdf5
+*.caffemodel
