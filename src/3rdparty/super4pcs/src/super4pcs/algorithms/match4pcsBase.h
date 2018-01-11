@@ -55,8 +55,36 @@
 #   include "utils/timer.h"
 #endif
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 namespace Super4PCS{
 
+class BaseGraph{
+    public:
+        using Point3D = match_4pcs::Point3D;
+
+        std::vector<Point3D> basePts_;
+        std::vector<int> baseIds_;
+        std::vector<std::pair<int,int> > basePixels;
+        std::vector<float> probVals;
+
+        float invariant1; 
+        float invariant2;
+
+        float jointProbability;
+
+        BaseGraph(std::vector<Point3D> basePts, std::vector<int> baseIds, float invariant1, float invariant2);
+        ~BaseGraph(){}
+        void computePriority(cv::Mat probImg, Eigen::Matrix3f camIntrinsic);
+}; // class BaseGraph
+
+class Compare{
+    public:
+        bool operator() (BaseGraph* lhs, BaseGraph* rhs){
+            return (lhs->jointProbability < rhs->jointProbability);
+        }
+}; // class Compare
 
 class Match4PCSBase {
 
@@ -96,7 +124,8 @@ public:
     ComputeTransformation(const std::vector<Point3D>& P,
                           std::vector<Point3D>* Q,
                           Eigen::Isometry3d &bestPose,
-                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
+                          std::string probImagePath, Eigen::Matrix3f camIntrinsic);
 
 protected:
     // Number of trials. Every trial picks random base from P.
@@ -221,12 +250,13 @@ protected:
     bool Perform_N_steps(int n,
                          Eigen::Ref<MatrixType> transformation,
                          std::vector<Point3D>* Q,
-                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
+                         std::string probImagePath, Eigen::Matrix3f camIntrinsic);
 
     // Tries one base and finds the best transformation for this base.
     // Returns true if the achieved LCP is greater than terminate_threshold_,
     // else otherwise.
-    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t, int operMode);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -308,6 +338,7 @@ private:
     void initKdTree();
 
 }; // class Match4PCSBase
+
 } // namespace Super4PCS
 
 #endif

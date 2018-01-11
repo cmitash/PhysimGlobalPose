@@ -293,7 +293,7 @@ namespace scene_cfg{
 	void SceneCfg::generateHypothesis(){
 		for(int ii=0; ii<numObjects; ii++){
 			pSceneObjects[ii]->hypotheses = new pose_candidates::ObjectPoseCandidateSet();
-			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel);
+			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel, camIntrinsic);
 		}
 	}
 	/********************************* performHypothesisSelection ******************************************

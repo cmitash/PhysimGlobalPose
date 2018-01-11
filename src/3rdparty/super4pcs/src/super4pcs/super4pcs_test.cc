@@ -37,7 +37,9 @@ int max_time_seconds = 1;
 bool use_super4pcs = true;
 
 int getProbableTransformsSuper4PCS(std::string input1, std::string input2, 
-      std::pair <Eigen::Isometry3d, float> &bestHypothesis, std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet) {
+      std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
+      std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
+      std::string probImagePath, Eigen::Matrix3f camIntrinsic) {
   
   using namespace Super4PCS;
 
@@ -83,7 +85,7 @@ int getProbableTransformsSuper4PCS(std::string input1, std::string input2,
 
   try {
     MatchSuper4PCS matcher(options);
-    bestscore = matcher.ComputeTransformation(set1, &set2, bestPose, hypothesisSet);
+    bestscore = matcher.ComputeTransformation(set1, &set2, bestPose, hypothesisSet, probImagePath, camIntrinsic);
   }
   catch (...) {
     std::cout << "[Unknown Error]: Aborting with code -3 ..." << std::endl;

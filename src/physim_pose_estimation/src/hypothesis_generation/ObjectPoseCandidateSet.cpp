@@ -2,7 +2,7 @@
 
 // Super4PCS package
 int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::pair<Eigen::Isometry3d, float> &bestHypothesis, 
-            std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet);
+            std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet, std::string probImagePath, Eigen::Matrix3f camIntrinsic);
 
 namespace pose_candidates{
 
@@ -16,7 +16,7 @@ namespace pose_candidates{
 	}
 
 	void ObjectPoseCandidateSet::generate(std::string objName, std::string scenePath, 
-				PointCloudRGB::Ptr pclSegment, PointCloudRGB::Ptr pclModel){
+				PointCloudRGB::Ptr pclSegment, PointCloudRGB::Ptr pclModel, Eigen::Matrix3f camIntrinsic){
 
 		if(pclSegment->points.size() <= 30) {
 			std::cout << "very few points returned from segmentation !!! returning default pose " << std::endl;
@@ -47,7 +47,12 @@ namespace pose_candidates{
 		pcl::io::savePLYFile(input1, *cloud_normals_segment);
 		pcl::io::savePLYFile(input2, *cloud_normals_model);
 
-		getProbableTransformsSuper4PCS(input1, input2, bestHypothesis, hypothesisSet);
+		std::string probImagePath = scenePath + "debug_super4PCS/" + objName + ".png";
+
+		std::cout << bestHypothesis.first.matrix() << std::endl;
+		getProbableTransformsSuper4PCS(input1, input2, bestHypothesis, hypothesisSet, probImagePath, camIntrinsic);
+		std::cout << bestHypothesis.first.matrix() << std::endl;
+		
 	}
 
 }

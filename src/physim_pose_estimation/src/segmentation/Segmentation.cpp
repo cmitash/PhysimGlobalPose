@@ -130,8 +130,8 @@ namespace segmentation{
 
           for(int u=0; u<imgHeight; u++){
             for(int v=0; v<imgWidth; v++) {
-              float probVal = (float)probImage.at<int>(u,v);
-                if(probVal > 0.05)
+              float probVal = (float)probImage.at<float>(u,v);
+                if(probVal)
                   sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
               }
           }
@@ -171,7 +171,7 @@ namespace segmentation{
     for(int ii=0; ii<sCfg->numObjects; ii++){
       cv::Mat objDepth = sCfg->depthImage.mul(sCfg->pSceneObjects[ii]->objMask);
       
-      utilities::writeDepthImage(objDepth, sCfg->scenePath + "debug_search/scene_db1.png");
+      utilities::writeDepthImage(objDepth, sCfg->scenePath + "debug_search/" + sCfg->pSceneObjects[ii]->pObject->objName + ".png");
 
       sCfg->pSceneObjects[ii]->pclSegment = PointCloudRGB::Ptr(new PointCloudRGB);
       utilities::convert3dUnOrganizedRGB(objDepth, sCfg->colorImage, sCfg->camIntrinsic, sCfg->pSceneObjects[ii]->pclSegment);

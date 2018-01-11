@@ -11,7 +11,7 @@ namespace pose_candidates{
 		~ObjectPoseCandidateSet();
 
 		void generate(std::string objName, std::string scenePath, 
-				PointCloudRGB::Ptr pclSegment, PointCloudRGB::Ptr pclModel);
+				PointCloudRGB::Ptr pclSegment, PointCloudRGB::Ptr pclModel, Eigen::Matrix3f camIntrinsic);
 		void cluster();
 
 		std::vector< std::pair <Eigen::Isometry3d, float> > hypothesisSet;

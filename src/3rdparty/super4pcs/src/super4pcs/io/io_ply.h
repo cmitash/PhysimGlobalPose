@@ -335,6 +335,7 @@ readASCII1Body (const std::string & filename,
         }
     }
 
+    fclose(in);
     return true;
 }
 

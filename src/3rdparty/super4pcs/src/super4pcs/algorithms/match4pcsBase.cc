@@ -46,6 +46,7 @@
 
 #include <vector>
 #include <chrono>
+#include <queue>
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"                 // MatrixBase.homogeneous()
@@ -907,7 +908,8 @@ Match4PCSBase::Scalar
 Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
                                      std::vector<Point3D>* Q,
                                      Eigen::Isometry3d &bestPose, 
-                                     std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
+                                     std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
+                                     std::string probImagePath, Eigen::Matrix3f camIntrinsic) {
 
   if (Q == nullptr) return kLargeNumber;
   init(P, *Q);
@@ -917,7 +919,7 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
 
   std::cout << "Super4PCS::Match4PCSBase::ComputeTransformation:number_of_trials_: " << number_of_trials_ << std::endl;
   
-  Perform_N_steps(number_of_trials_, transformation, Q, allPose);
+  Perform_N_steps(number_of_trials_, transformation, Q, allPose, probImagePath, camIntrinsic);
 
   bestPose = convertToIsometry3d(transformation);
 
@@ -937,7 +939,8 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
 bool Match4PCSBase::Perform_N_steps(int n,
                                     Eigen::Ref<MatrixType> transformation,
                                     std::vector<Point3D>* Q,
-                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
+                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
+                                    std::string probImagePath, Eigen::Matrix3f camIntrinsic) {
 	using std::chrono::system_clock;
   if (Q == nullptr) return false;
 
@@ -948,8 +951,61 @@ bool Match4PCSBase::Perform_N_steps(int n,
   Scalar last_best_LCP = best_LCP_;
   bool ok = false;
   std::chrono::time_point<system_clock> t0 = system_clock::now(), end;
+
+  // Implementing Base priority
+  std::priority_queue<BaseGraph*, std::vector<BaseGraph*>, Super4PCS::Compare > basePQ;
+  cv::Mat probImgRaw = cv::imread(probImagePath, CV_16UC1);
+    cv::Mat probImg = cv::Mat::zeros(probImgRaw.rows, probImgRaw.cols, CV_32FC1);
+    for(int u=0; u<probImgRaw.rows; u++)
+      for(int v=0; v<probImgRaw.cols; v++){
+        unsigned short probShort = probImgRaw.at<unsigned short>(u,v);
+        float prob = (float)probShort/10000;
+        probImg.at<float>(u, v) = prob;
+      }
+
+  // This should be passed
+  int operMode = 0;
+  if(operMode == 1) {
+    clock_t t1 = clock();
+    for (int i = 0; i < 5000; ++i) {
+      Scalar invariant1, invariant2;
+
+      std::vector<int> baseIdx(4);
+      std::vector<Point3D> basePts;
+
+      SelectQuadrilateral(invariant1, invariant2, baseIdx[0], baseIdx[1], baseIdx[2], baseIdx[3]);
+
+      for(int ii=0; ii<4; ii++){
+        Point3D b_ii = sampled_P_3D_[baseIdx[ii]];
+        b_ii.pos() += centroid_P_;
+        basePts.push_back(b_ii);
+      }
+      
+      BaseGraph *b = new BaseGraph(basePts, baseIdx, invariant1, invariant2);
+      b->computePriority(probImg, camIntrinsic);
+      basePQ.push(b);
+    }
+    std::cout << "Super4PCS::Perform_N_steps::Time after extracting bases: " << float( clock () - t1 ) /  CLOCKS_PER_SEC << std::endl;
+  }
+
   for (int i = current_trial_; i < current_trial_ + n; ++i) {
-    ok = TryOneBase(allPose);
+    
+    if(operMode == 1){
+      if(!basePQ.empty()){
+        BaseGraph *b_t = basePQ.top();
+        std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:Pixel1: " << b_t->basePixels[0].first << " " << b_t->basePixels[0].second << " " << b_t->probVals[0] << std::endl;
+        std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:Pixel2: " << b_t->basePixels[1].first << " " << b_t->basePixels[1].second << " " << b_t->probVals[1] << std::endl;
+        std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:Pixel3: " << b_t->basePixels[2].first << " " << b_t->basePixels[2].second << " " << b_t->probVals[2] << std::endl;
+        std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:Pixel4: " << b_t->basePixels[3].first << " " << b_t->basePixels[3].second << " " << b_t->probVals[3] << std::endl;
+        std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:Top Priority is: " << b_t->jointProbability << std::endl;
+        basePQ.pop();
+        ok = TryOneBase(allPose, b_t, 1);
+      }
+    }
+    else {
+      BaseGraph *b_t = NULL;
+      ok = TryOneBase(allPose, b_t, 0);
+    }
 
     std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:BaseNumber: " << i+1 << std::endl;
     std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:TotalCongruentQuad: " << allPose.size() << std::endl;
@@ -1009,40 +1065,30 @@ bool Match4PCSBase::Perform_N_steps(int n,
 // Pick one base, finds congruent 4-points in Q, verifies for all
 // transformations, and retains the best transformation and LCP. This is
 // a complete RANSAC iteration.
-bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
+bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t, int operMode) {
   Scalar invariant1, invariant2;
   int base_id1, base_id2, base_id3, base_id4;
 
-//#define STATIC_BASE
-
-#ifdef STATIC_BASE
-  static bool first_time = true;
-
-  if (first_time){
-      base_id1 = 0;
-      base_id2 = 3;
-      base_id3 = 1;
-      base_id4 = 4;
-
-      base_3D_[0] = sampled_P_3D_ [base_id1];
-      base_3D_[1] = sampled_P_3D_ [base_id2];
-      base_3D_[2] = sampled_P_3D_ [base_id3];
-      base_3D_[3] = sampled_P_3D_ [base_id4];
-
-      TryQuadrilateral(&invariant1, &invariant2, base_id1, base_id2, base_id3, base_id4);
-
-      first_time = false;
-  }
-  else
+  if(operMode == 0) {
+    if (!SelectQuadrilateral(invariant1, invariant2, base_id1, base_id2,
+                             base_id3, base_id4)) {
       return false;
-
-#else
-
-  if (!SelectQuadrilateral(invariant1, invariant2, base_id1, base_id2,
-                           base_id3, base_id4)) {
-    return false;
+    }
   }
-#endif
+  else {
+    for(int ii=0;ii<4;ii++){
+      b_t->basePts_[ii].pos() -= centroid_P_;
+      base_3D_[ii] = b_t->basePts_[ii];
+    }
+
+    base_id1 = b_t->baseIds_[0];
+    base_id2 = b_t->baseIds_[1];
+    base_id3 = b_t->baseIds_[2];
+    base_id4 = b_t->baseIds_[3];
+
+    invariant1 = b_t->invariant1;
+    invariant2 = b_t->invariant2;
+  }
 
   // Computes distance between pairs.
   const Scalar distance1 = (base_3D_[0].pos()- base_3D_[1].pos()).norm();
@@ -1062,11 +1108,11 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
   ExtractPairs(distance2, normal_angle2, distance_factor * options_.delta, 2,
                   3, &pairs2);
 
-  std::cout << "Super4PCS::TryOneBase::Time after pair extraction: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
+  // std::cout << "Super4PCS::TryOneBase::Time after pair extraction: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
 
-  std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"
-           << pairs1.size() << " - "
-           << pairs2.size() << std::endl;
+  // std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"
+  //          << pairs1.size() << " - "
+  //          << pairs2.size() << std::endl;
 
   if (pairs1.size() == 0 || pairs2.size() == 0) {
     return false;
@@ -1082,7 +1128,7 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
     return false;
   }
 
-  std::cout << "Super4PCS::TryOneBase::Time after finding congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
+  // std::cout << "Super4PCS::TryOneBase::Time after finding congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
 
   size_t nb = 0;
 
@@ -1090,12 +1136,46 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
                                congruent_quads,
                                nb, allPose);
 
-  std::cout << "Super4PCS::TryOneBase::Time after trying congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
+  // std::cout << "Super4PCS::TryOneBase::Time after trying congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
 
   //if (nb != 0)
   //    std::cout << "Congruent quads: (" << nb << ")    " << std::endl;
 
   return match;
+}
+
+BaseGraph::BaseGraph(std::vector<Point3D> basePts, std::vector<int> baseIds, float invariant1, float invariant2){
+  basePts_.push_back(basePts[0]);
+  basePts_.push_back(basePts[1]);
+  basePts_.push_back(basePts[2]);
+  basePts_.push_back(basePts[3]);
+
+  baseIds_.push_back(baseIds[0]);
+  baseIds_.push_back(baseIds[1]);
+  baseIds_.push_back(baseIds[2]);
+  baseIds_.push_back(baseIds[3]);
+  
+  this->invariant1 = invariant1;
+  this->invariant2 = invariant2;
+
+  jointProbability = 1;
+}
+
+void BaseGraph::computePriority(cv::Mat probImg, Eigen::Matrix3f camIntrinsic){
+  for(int ii=0; ii<4; ii++){
+    double x1 = basePts_[ii].x();
+    double y1 = basePts_[ii].y();
+    double z1 = basePts_[ii].z();
+
+    Eigen::Vector3f point2D = camIntrinsic * Eigen::Vector3f(x1, y1, z1);
+    int col = point2D[0]/point2D[2];
+    int row = point2D[1]/point2D[2];
+
+    basePixels.push_back(std::make_pair(row, col));
+    probVals.push_back(probImg.at<float>(row, col));
+
+    jointProbability *= probImg.at<float>(row, col);
+  }
 }
 
 } // namespace Super4PCS
