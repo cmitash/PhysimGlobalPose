@@ -61,13 +61,6 @@ class segmentation:
 
     self.graph = tf2.get_default_graph()
 
-    # print (model_name)
-    # model = globals()[model_name](batch_shape=self.batch_shape, input_shape=(640, 640, 3), classes=self.num_classes)
-    
-    # print (checkpoint_path)
-    # model.load_weights(checkpoint_path, by_name=True)
-    # model.summary()
-
   def handle_get_segments(self, req):
     global active_object_list
     global active_frame
@@ -99,12 +92,6 @@ class segmentation:
         end = time.time()
         print(end - start)
 
-    # model.load_weights(self.checkpoint_path, by_name=True)
-    # start = time.time()
-    # result = model.predict(image_np, batch_size=1)
-    # end = time.time()
-    # print(end - start)
-
     start = time.time()
     prob_result = result[0]
     prob_result = np.exp(prob_result)
@@ -116,6 +103,7 @@ class segmentation:
 
     for classVal in range(0,self.num_classes):
         class_prob = prob_result[:,:,classVal]*10000
+        # class_prob = prob_result[:,:,classVal]
         class_prob_int = class_prob.astype(np.uint16)
         class_prob_int = class_prob_int[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
         cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/%s.png' % (ycb_objects[classVal])), class_prob_int)
