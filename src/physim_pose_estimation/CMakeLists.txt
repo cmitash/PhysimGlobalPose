@@ -77,18 +77,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${CATKIN_DEVEL_PREFIX}/include
-  $ENV{BULLET_PHYSICS_PATH}/src
 )
-
-set(RIGIDBODY_EXAMPLE_OBJS $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/LoadMeshFromObj.o
-                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/tiny_obj_loader.o
-                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/Wavefront2GLInstanceGraphicsShape.o
-                           )
-
-set(BULLET_LIBS $ENV{BULLET_PHYSICS_PATH}/bin/libBulletDynamics_gmake_x64_release.a 
-  $ENV{BULLET_PHYSICS_PATH}/bin/libBulletCollision_gmake_x64_release.a 
-  $ENV{BULLET_PHYSICS_PATH}/bin/libLinearMath_gmake_x64_release.a 
-  $ENV{BULLET_PHYSICS_PATH}/bin/libBullet3Common_gmake_x64_release.a)
 
 ## Declare a C++ executable
 add_executable(physim_pose_estimation ${RIGIDBODY_EXAMPLE_OBJS}
@@ -102,7 +91,7 @@ add_executable(physim_pose_estimation ${RIGIDBODY_EXAMPLE_OBJS}
                           src/hypothesis_verification/HypothesisSelection.cpp
                           )
 
-add_executable(physim_pose_visualization ${RIGIDBODY_EXAMPLE_OBJS}
+add_executable(physim_pose_visualization
                           src/main_viz.cpp 
                           src/data_layer/GlobalCfg.cpp
                           src/data_layer/SceneCfg.cpp
@@ -125,24 +114,19 @@ target_link_libraries(physim_pose_estimation
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libsuper4pcs.so
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
-  ${BULLET_LIBS}
+  ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
 )
 
 target_link_libraries(physim_pose_visualization
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libsuper4pcs.so
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
-  ${BULLET_LIBS}
+  ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
 )
 
 target_link_libraries(physim_pose_featureGen
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libsuper4pcs.so
-  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
+  ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
 )
