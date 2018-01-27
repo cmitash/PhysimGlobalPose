@@ -11,7 +11,7 @@ namespace scene_cfg{
 		public:
 			objects::Objects *pObject;
 			cv::Mat objMask;
-			PointCloudRGB::Ptr pclSegment;
+			pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment;
 			pose_candidates::ObjectPoseCandidateSet *hypotheses;
 			Eigen::Isometry3d objPose;
 
@@ -79,13 +79,9 @@ namespace scene_cfg{
 						std::string HypothesisGenerationMode, std::string HypothesisVerificationMode) :
 						SceneCfg(SceneFiles, SegmentationMode, HypothesisGenerationMode, HypothesisVerificationMode){};
 
-			void getSceneInfo(GlobalCfg *pCfg){
-				std::cout << "Not Implemented Yet!!!";
-			}
+			void getSceneInfo(GlobalCfg *pCfg);
 
-			void cleanDebugLocations(){
-				std::cout << "Not Implemented Yet!!!";
-			}
+			void cleanDebugLocations();
 	};
 
 }//namespace

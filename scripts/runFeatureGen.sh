@@ -1,0 +1,22 @@
+#!/bin/bash
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/002_master_chef_can" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/003_cracker_box" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/004_sugar_box" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/005_tomato_soup_can" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/006_mustard_bottle" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/007_tuna_fish_can" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/008_pudding_box" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/009_gelatin_box" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/010_potted_meat_can" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/011_banana" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/019_pitcher_base" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/021_bleach_cleanser" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/024_bowl" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/025_mug" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/035_power_drill" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/036_wood_block" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/037_scissors" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/040_large_marker" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/051_large_clamp" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/052_extra_large_clamp" 0.005
+rosrun physim_pose_estimation physim_pose_featureGen "/home/chaitanya/github/PhysimGlobalPose/models/061_foam_brick" 0.005

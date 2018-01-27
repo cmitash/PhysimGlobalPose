@@ -9,6 +9,17 @@
 #include "accelerators/pairExtraction/intersectionFunctor.h"
 #include "accelerators/pairExtraction/intersectionPrimitive.h"
 
+static float approximate_bin(float val, float disc) {
+  float lower_limit = val - fmod(val, disc);
+  float upper_limit = lower_limit + disc;
+
+  float dist_from_lower = val - lower_limit;
+  float dist_from_upper = upper_limit - val;
+
+  float closest = (dist_from_lower < dist_from_upper)? lower_limit:upper_limit;
+  return closest;
+}
+
 template <typename _Scalar>
 struct PairCreationFunctor{
 
@@ -25,6 +36,7 @@ public:
   double pair_normals_angle;
   double pair_distance;
   double pair_distance_epsilon;
+  std::vector<float> ppf_;
 
   // Shared data
   match_4pcs::Match4PCSOptions options_;
@@ -202,6 +214,24 @@ public:
           if (! dist_good) return;
       }
 
+      float trans_disc = 0.02;
+      float rot_disc = 20;
+
+      const VectorType u = q.pos() - p.pos();
+      float ppf_1 = u.norm();
+      float ppf_2 = atan2(q.normal().cross(u).norm(), q.normal().dot(u))*180/M_PI;
+      float ppf_3 = atan2(p.normal().cross(u).norm(), p.normal().dot(u))*180/M_PI;
+      float ppf_4 = atan2(q.normal().cross(p.normal()).norm(), q.normal().dot(p.normal()))*180/M_PI;
+
+      ppf_1 = approximate_bin(ppf_1, trans_disc);
+      ppf_2 = approximate_bin(ppf_2, rot_disc);
+      ppf_3 = approximate_bin(ppf_3, rot_disc);
+      ppf_4 = approximate_bin(ppf_4, rot_disc);
+      // std::cout << "ppf: " << ppf_1 << " " << ppf_2 << " " << ppf_3 << " " << ppf_4 << std::endl;
+
+      if(ppf_1 != ppf_[0] || ppf_4 != ppf_[3])return;
+      if(!(ppf_2 == ppf_[1] && ppf_3 == ppf_[2]) && !(ppf_2 == ppf_[2] && ppf_3 == ppf_[1])) return;
+      
       // need cleaning here
       if (options_.max_angle > 0){
           VectorType segment2 = (q.pos() - p.pos()).normalized();

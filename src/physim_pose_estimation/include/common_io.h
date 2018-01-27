@@ -68,6 +68,7 @@ namespace utilities{
 	void convert3dUnOrganizedRGB(cv::Mat &objDepth, cv::Mat &colorImage, Eigen::Matrix3f &camIntrinsic, PointCloudRGB::Ptr objCloud);
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> simpleVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
 	void readDepthImage(cv::Mat &depthImg, std::string path);
+	void readProbImage(cv::Mat &probImg, std::string path);
 	void writeDepthImage(cv::Mat &depthImg, std::string path);
 	void writeClassImage(cv::Mat &classImg, cv::Mat colorImage, std::string path);
 	void convert2d(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);

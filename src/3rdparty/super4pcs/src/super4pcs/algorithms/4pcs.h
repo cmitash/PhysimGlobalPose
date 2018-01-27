@@ -80,7 +80,7 @@ public:
             Scalar pair_normals_angle,
             Scalar pair_distance_epsilon, int base_point1,
             int base_point2,
-            PairsVector* pairs) const override;
+            PairsVector* pairs,std::vector<float> ppf_) const override;
 
     // Finds congruent candidates in the set Q, given the invariants and threshold
     // distances. Returns true if a non empty set can be found, false otherwise.

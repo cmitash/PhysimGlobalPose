@@ -12,18 +12,33 @@ namespace objects{
 		this->objIdx = classId;
 		this->symInfo = symInfo;
 
-		PointCloud::Ptr tmpPclModel = PointCloud::Ptr(new PointCloud);
-		pclModel = PointCloudRGB::Ptr(new PointCloudRGB);
-
-		pcl::io::loadPCDFile(env_p + "/models/" + pcdLocation, *tmpPclModel);
-		pcl::copyPointCloud(*tmpPclModel, *pclModel);
+		pcl::PointCloud<pcl::PointNormal>::Ptr tmpPclModel_1 = pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
+		pcl::PointCloud<pcl::PointNormal>::Ptr tmpPclModel_2 = pcl::PointCloud<pcl::PointNormal>::Ptr(new pcl::PointCloud<pcl::PointNormal>);
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModelTmp = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 		
-		if(classId == 1 || classId==6 || classId==14 || classId==19 || classId==20)
-			pcl::io::loadPolygonFile(env_p + "/models/" + objLocation , objModel);
+		pclModel = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
+		pclModelSampled = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
-		pcl::VoxelGrid<pcl::PointXYZRGB> sor;
-		sor.setInputCloud (pclModel);
-		sor.setLeafSize (modelDiscretization, modelDiscretization, modelDiscretization);
-		sor.filter (*pclModel);
-	}	
+		pcl::io::loadPLYFile(env_p + "/models/" + objName + "/model_search.ply", *tmpPclModel_1);
+		pcl::io::loadPLYFile(env_p + "/models/" + objName + "/model_validation.ply", *tmpPclModel_2);
+
+		pcl::copyPointCloud(*tmpPclModel_1, *pclModelSampled);
+		pcl::copyPointCloud(*tmpPclModel_2, *pclModel);
+
+		pcl::io::loadPolygonFile(env_p + "/models/" + objLocation , objModel);
+	}
+
+	void Objects::readPPFMap(std::string env_p, std::string objName){
+		ifstream ppfFile;
+		std::vector<float> ppf_feature(4);
+		float feature_count, max_count;
+
+		ppfFile.open ((env_p + "/models/" + objName + "/PPFMap.txt").c_str(), std::ofstream::in);
+
+		while(ppfFile >> ppf_feature[0] >> ppf_feature[1] >> ppf_feature[2] >> ppf_feature[3] >> feature_count >> max_count){
+			PPFMap.insert (std::pair<std::vector<float>, float>(ppf_feature, feature_count));
+			max_count_ppf = max_count;
+		}
+		std::cout << "PPFMap size is: " << PPFMap.size() << std::endl;
+	}
 }

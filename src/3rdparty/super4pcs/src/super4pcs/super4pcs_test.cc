@@ -17,7 +17,7 @@ using namespace match_4pcs;
 //Parameters for the algorithm
 
 // Delta (see the paper).
-double delta = 0.0035;
+double delta = 0.005;
 
 // Estimated overlap (see the paper).
 double overlap = 0.5;
@@ -29,25 +29,26 @@ double max_color = -1;
 int n_points = 400;
 
 // Maximum angle (degrees) between corresponded normals.
-double norm_diff = 1;
+double norm_diff = -1;
 
 // Maximum allowed computation time.
 int max_time_seconds = 1;
 
 bool use_super4pcs = true;
 
-int getProbableTransformsSuper4PCS(std::string input1, std::string input2, 
+int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, 
       std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
       std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
-      std::string probImagePath, Eigen::Matrix3f camIntrinsic) {
+      std::string probImagePath, std::map<std::vector<float>, float> PPFMap, float max_count_ppf, 
+      Eigen::Matrix3f camIntrinsic, std::string objName) {
   
   using namespace Super4PCS;
 
-  vector<Point3D> set1, set2;
-  vector<Eigen::Matrix2f> tex_coords1, tex_coords2;
-  vector<typename Point3D::VectorType> normals1, normals2;
-  vector<tripple> tris1, tris2;
-  vector<std::string> mtls1, mtls2;
+  vector<Point3D> set1, set2, set3;
+  vector<Eigen::Matrix2f> tex_coords1, tex_coords2, tex_coords3;
+  vector<typename Point3D::VectorType> normals1, normals2, normals3;
+  vector<tripple> tris1, tris2, tris3;
+  vector<std::string> mtls1, mtls2, mtls3;
   Eigen::Isometry3d bestPose;
   float bestscore;
 
@@ -66,10 +67,18 @@ int getProbableTransformsSuper4PCS(std::string input1, std::string input2,
     exit(-1);
   }
 
+  if (!iomananger.ReadObject((char *)input3.c_str(), set3, tex_coords3, normals3, tris3,
+                  mtls3)) {
+    perror("Can't read input set3");
+    exit(-1);
+  }
+
   // clean only when we have pset to avoid wrong face to point indexation
   if (tris1.size() == 0)
     Utils::CleanInvalidNormals(set1, normals1);
   if (tris2.size() == 0)
+    Utils::CleanInvalidNormals(set2, normals2);
+  if (tris3.size() == 0)
     Utils::CleanInvalidNormals(set2, normals2);
 
   // Our matcher.
@@ -85,7 +94,7 @@ int getProbableTransformsSuper4PCS(std::string input1, std::string input2,
 
   try {
     MatchSuper4PCS matcher(options);
-    bestscore = matcher.ComputeTransformation(set1, &set2, bestPose, hypothesisSet, probImagePath, camIntrinsic);
+    bestscore = matcher.ComputeTransformation(set1, &set3, &set2, bestPose, hypothesisSet, probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName);
   }
   catch (...) {
     std::cout << "[Unknown Error]: Aborting with code -3 ..." << std::endl;

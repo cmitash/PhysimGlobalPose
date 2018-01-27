@@ -20,6 +20,11 @@ namespace segmentation{
 		void compute2dSegment(GlobalCfg *gCfg, scene_cfg::SceneCfg *sCfg);
 	};
 
+	class RCNNThresholdSegmentation: public Segmentation {
+	public:
+		void compute2dSegment(GlobalCfg *gCfg, scene_cfg::SceneCfg *sCfg);
+	};
+
 	class FCNSegmentation: public Segmentation {
 	public:
 		void compute2dSegment(GlobalCfg *gCfg, scene_cfg::SceneCfg *sCfg);

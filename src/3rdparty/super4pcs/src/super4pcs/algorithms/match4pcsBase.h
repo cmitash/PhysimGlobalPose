@@ -64,7 +64,6 @@ class BaseGraph{
     public:
         using Point3D = match_4pcs::Point3D;
 
-        std::vector<Point3D> basePts_;
         std::vector<int> baseIds_;
         std::vector<std::pair<int,int> > basePixels;
         std::vector<float> probVals;
@@ -74,9 +73,8 @@ class BaseGraph{
 
         float jointProbability;
 
-        BaseGraph(std::vector<Point3D> basePts, std::vector<int> baseIds, float invariant1, float invariant2);
+        BaseGraph(std::vector<int> baseIds, float invariant1, float invariant2);
         ~BaseGraph(){}
-        void computePriority(cv::Mat probImg, Eigen::Matrix3f camIntrinsic);
 }; // class BaseGraph
 
 class Compare{
@@ -123,9 +121,11 @@ public:
     Scalar
     ComputeTransformation(const std::vector<Point3D>& P,
                           std::vector<Point3D>* Q,
+                          std::vector<Point3D>* Q_validation,
                           Eigen::Isometry3d &bestPose,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                          std::string probImagePath, Eigen::Matrix3f camIntrinsic);
+                          std::string probImagePath, std::map<std::vector<float>, float> PPFMap, float max_count_ppf,
+                          Eigen::Matrix3f camIntrinsic, std::string objName);
 
 protected:
     // Number of trials. Every trial picks random base from P.
@@ -163,6 +163,7 @@ protected:
     std::vector<Point3D> sampled_P_3D_;
     // Sampled Q (3D coordinates).
     std::vector<Point3D> sampled_Q_3D_;
+    std::vector<Point3D> validation_Q_3D;
     // The 3D points of the base.
     std::vector<Point3D> base_3D_;
     // The copy of the input Q. We transform Q to match P and returned the
@@ -180,6 +181,11 @@ protected:
     Super4PCS::KdTree<Scalar> kd_tree_;
     // Parameters.
     match_4pcs::Match4PCSOptions options_;
+    // point probabilities for sampled_P_3D
+    std::vector<float> orig_probabilities_;
+    std::vector<std::pair<int, int> > corr_pixels;
+    // mode of operation
+    int operMode;
 
 #ifdef TEST_GLOBAL_TIMINGS
 
@@ -194,13 +200,6 @@ protected:
 protected:
 
     Match4PCSBase(const match_4pcs::Match4PCSOptions& options);
-
-
-    // Computes the mean distance between points in Q and their nearest neighbor.
-    // We need this for normalization of the user delta (See the paper) to the
-    // "scale" of the set.
-    Scalar MeanDistance();
-
 
     // Selects a random triangle in the set P (then we add another point to keep the
     // base as planar as possible). We apply a simple heuristic that works in most
@@ -251,12 +250,12 @@ protected:
                          Eigen::Ref<MatrixType> transformation,
                          std::vector<Point3D>* Q,
                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                         std::string probImagePath, Eigen::Matrix3f camIntrinsic);
+                         std::map<std::vector<float>, float> PPFMap, float max_count_ppf);
 
     // Tries one base and finds the best transformation for this base.
     // Returns true if the achieved LCP is greater than terminate_threshold_,
     // else otherwise.
-    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t, int operMode);
+    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -273,7 +272,10 @@ protected:
     // Set as public for testing and debug purpose.
 public:
     void init(const std::vector<Point3D>& P,
-              const std::vector<Point3D>& Q);
+                         const std::vector<Point3D>& Q,
+                         const std::vector<Point3D>& Q_validation,
+                         std::string probImagePath,
+                         Eigen::Matrix3f camIntrinsic, std::string objName);
 
     // Selects a quadrilateral from P and returns the corresponding invariants
     // and point indices. Returns true if a quadrilateral has been found, false
@@ -301,7 +303,7 @@ public:
                   Scalar pair_normals_angle,
                   Scalar pair_distance_epsilon, int base_point1,
                   int base_point2,
-                  PairsVector* pairs) const = 0;
+                  PairsVector* pairs, std::vector<float> ppf_) const = 0;
 
     // Finds congruent candidates in the set Q, given the invariants and threshold
     // distances. Returns true if a non empty set can be found, false otherwise.

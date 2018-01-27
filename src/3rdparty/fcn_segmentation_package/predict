@@ -64,6 +64,7 @@ class segmentation:
   def handle_get_segments(self, req):
     global active_object_list
     global active_frame
+    global object_map
 
     print(active_object_list)
     print(active_frame)
@@ -94,19 +95,27 @@ class segmentation:
 
     start = time.time()
     prob_result = result[0]
-    prob_result = np.exp(prob_result)
-    prob_sum = np.sum(prob_result, axis=2)
-    prob_sum = np.tile(prob_sum, (self.num_classes,1,1))
-    prob_sum = np.swapaxes(prob_sum, 0, 1)
-    prob_sum = np.swapaxes(prob_sum, 1, 2)
-    prob_result = np.divide(prob_result, prob_sum)
+
+    # get per-pixel class wise probability
+    # prob_result = np.exp(prob_result)
+    # prob_sum = np.sum(prob_result, axis=2)
+    # prob_sum = np.tile(prob_sum, (self.num_classes,1,1))
+    # prob_sum = np.swapaxes(prob_sum, 0, 1)
+    # prob_sum = np.swapaxes(prob_sum, 1, 2)
+    # prob_result = np.divide(prob_result, prob_sum)
+
+    # get per class probability
 
     for classVal in range(0,self.num_classes):
-        class_prob = prob_result[:,:,classVal]*10000
-        # class_prob = prob_result[:,:,classVal]
+        class_prob = prob_result[:,:,classVal]
+        super_threshold_indices = class_prob < 0
+        class_prob[super_threshold_indices] = 0
+        class_max = np.ndarray.max(class_prob)
+        class_prob = class_prob/class_max
+        class_prob = class_prob*10000
         class_prob_int = class_prob.astype(np.uint16)
         class_prob_int = class_prob_int[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
-        cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/%s.png' % (ycb_objects[classVal])), class_prob_int)
+        cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/%s.png' % (object_map[classVal])), class_prob_int)
 
     result = np.argmax(np.squeeze(result), axis=-1).astype(np.uint16)
     result_img = result[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
@@ -154,10 +163,19 @@ def update_active_object_list_and_frame(req):
     return 1
 
 if __name__ == '__main__':
+    global object_map
+
     model_name = 'FCN_Vgg16_32s'
-    weight_file = 'checkpoint_weights.hdf5'
     image_size = (640, 640)
+
+    weight_file = 'ycb_weights.hdf5'
+    # weight_file = 'apc_weights.hdf5'
+
     num_classes = 22
+    # num_classes = 12
+
+    object_map = ycb_objects
+    # object_map = apc_objects
 
     checkpoint_path = os.path.join(g_repo_path, 'src/3rdparty/fcn_segmentation_package/Models/FCN_Vgg16_32s', weight_file)
 

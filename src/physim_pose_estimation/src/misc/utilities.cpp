@@ -51,12 +51,31 @@ namespace utilities{
 		for(int u=0; u<depthImgRaw.rows; u++)
 			for(int v=0; v<depthImgRaw.cols; v++){
 				unsigned short depthShort = depthImgRaw.at<unsigned short>(u,v);
+
+				//TODO: need to manually uncomment for APC objects
 				// depthShort = (depthShort << 13 | depthShort >> 3);
+				
 				float depth = (float)depthShort/10000;
 				depthImg.at<float>(u, v) = depth;
 			}
 	}
 
+	/********************************* function: readProbImage ********************************************
+	*******************************************************************************************************/
+
+	void readProbImage(cv::Mat &probImg, std::string path){
+		std::cout << path << std::endl;
+		cv::Mat depthImgRaw = cv::imread(path, CV_16UC1);
+		probImg = cv::Mat::zeros(depthImgRaw.rows, depthImgRaw.cols, CV_32FC1);
+		for(int u=0; u<depthImgRaw.rows; u++)
+			for(int v=0; v<depthImgRaw.cols; v++){
+				unsigned short depthShort = depthImgRaw.at<unsigned short>(u,v);
+				
+				float depth = (float)depthShort/10000;
+				probImg.at<float>(u, v) = depth;
+			}
+	}
+	
 	/********************************* function: writeDepthImage *******************************************
 	*******************************************************************************************************/
 

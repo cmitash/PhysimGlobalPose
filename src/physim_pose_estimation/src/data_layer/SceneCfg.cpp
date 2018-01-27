@@ -3,6 +3,8 @@
 #include <HypothesisSelection.hpp>
 #include <fstream>
 
+#include <cv_bridge/cv_bridge.h>
+
 clock_t preprocess_begin_time;
 
 namespace scene_cfg{
@@ -244,6 +246,72 @@ namespace scene_cfg{
 			for(int32_t jj = 0; jj < camIntr[ii].size(); jj++)
 				camIntrinsic(ii, jj) = static_cast<double>(camIntr[ii][jj]);
 	}
+
+	void CAMSceneCfg::getSceneInfo(GlobalCfg *gCfg){
+		std::vector<double> camPose7D;
+		XmlRpc::XmlRpcValue camIntr;
+
+		sensor_msgs::Image::ConstPtr msg_color;
+      	sensor_msgs::Image::ConstPtr msg_depth;
+
+	    msg_color = ros::topic::waitForMessage<sensor_msgs::Image>("/rgb/image", gCfg->nh);
+	    msg_depth = ros::topic::waitForMessage<sensor_msgs::Image>("/depth/image", gCfg->nh);
+
+	    cv_bridge::CvImagePtr cv_ptr_color;
+	    cv_bridge::CvImagePtr cv_ptr_depth;
+	    try {
+	       cv_ptr_color = cv_bridge::toCvCopy(*msg_color, sensor_msgs::image_encodings::BGR8);
+	       cv_ptr_depth = cv_bridge::toCvCopy(*msg_depth, (*msg_depth).encoding);
+	       cv::imwrite(scenePath + "frame-000000.color.png", cv_ptr_color->image);
+	       cv::imwrite(scenePath + "frame-000000.depth.png", cv_ptr_depth->image);
+	    }
+	    catch (cv_bridge::Exception& e)
+	    {
+	        ROS_ERROR("cv_bridge exception: %s", e.what());\
+	        exit(-1);
+	    }
+
+		// Loading params from the yaml file
+		system(("rosparam load " + scenePath + "gt_info.yml").c_str());
+
+		gCfg->nh.getParam("/camera/camera_pose", camPose7D);
+		gCfg->nh.getParam("/scene/num_objects", numObjects);
+
+		camPose = Eigen::Matrix4f::Zero(4,4);
+		utilities::toTransformationMatrix(camPose, camPose7D);
+
+		// Loading RGB and depth images
+		colorImage = cv::imread(scenePath + "frame-000000.color.png", CV_LOAD_IMAGE_COLOR);
+	    utilities::readDepthImage(depthImage, scenePath + "frame-000000.depth.png");
+
+		// Loading scene objects
+		for(int ii=0; ii<numObjects; ii++){
+			std::string currObject;
+			char objTopic[50];
+			sprintf(objTopic, "/scene/object_%d/name", ii+1);
+			gCfg->nh.getParam(objTopic, currObject);
+
+			for(int jj=0; jj< gCfg->num_objects; jj++){\
+				if(!currObject.compare(gCfg->gObjects[jj]->objName)) {
+
+					std::cout << "Loading object: " << currObject << std::endl;
+
+					scene_cfg::SceneObjects *tSceneObj = new scene_cfg::SceneObjects();
+					tSceneObj->pObject = gCfg->gObjects[jj];
+					tSceneObj->objMask = cv::Mat::zeros(colorImage.rows, colorImage.cols, CV_32FC1);
+					tSceneObj->objPose.matrix().setIdentity();
+					pSceneObjects.push_back(tSceneObj);
+				}
+			}
+		}
+
+	  	// Reading camera intrinsic matrix
+		camIntrinsic = Eigen::Matrix3f::Zero(3,3);
+		gCfg->nh.getParam("/camera/camera_intrinsics", camIntr);
+		for(int32_t ii = 0; ii < camIntr.size(); ii++)
+			for(int32_t jj = 0; jj < camIntr[ii].size(); jj++)
+				camIntrinsic(ii, jj) = static_cast<double>(camIntr[ii][jj]);
+	}
 	
 	/********************************* cleanDebugLocations *************************************************
 	*******************************************************************************************************/
@@ -267,6 +335,16 @@ namespace scene_cfg{
 
 		system(("rm " + scenePath + "result.txt").c_str());
 	}
+
+	void CAMSceneCfg::cleanDebugLocations(){
+		system(("rm -rf " + scenePath + "debug_search").c_str());
+		system(("mkdir " + scenePath + "debug_search").c_str());
+
+		system(("rm -rf " + scenePath + "debug_super4PCS").c_str());
+		system(("mkdir " + scenePath + "debug_super4PCS").c_str());
+
+		system(("rm " + scenePath + "result.txt").c_str());
+	}
 	
 	/********************************* perfromSegmentation *************************************************
 	*******************************************************************************************************/
@@ -276,6 +354,8 @@ namespace scene_cfg{
 		segmentation::Segmentation *pSegmentation;
 		if(!segMode.compare("RCNN"))
 			pSegmentation = new segmentation::RCNNSegmentation();
+		if(!segMode.compare("RCNNThreshold"))
+			pSegmentation = new segmentation::RCNNThresholdSegmentation();
 		else if(!segMode.compare("FCN"))
 			pSegmentation = new segmentation::FCNSegmentation();
 		else if(!segMode.compare("FCNThreshold"))
@@ -293,7 +373,9 @@ namespace scene_cfg{
 	void SceneCfg::generateHypothesis(){
 		for(int ii=0; ii<numObjects; ii++){
 			pSceneObjects[ii]->hypotheses = new pose_candidates::ObjectPoseCandidateSet();
-			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel, camIntrinsic);
+			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, 
+				pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel, pSceneObjects[ii]->pObject->pclModelSampled,
+				pSceneObjects[ii]->pObject->PPFMap, pSceneObjects[ii]->pObject->max_count_ppf , camIntrinsic);
 		}
 	}
 	/********************************* performHypothesisSelection ******************************************

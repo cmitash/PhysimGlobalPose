@@ -111,7 +111,7 @@ Match4PCS::ExtractPairs(Scalar pair_distance,
                         Scalar pair_distance_epsilon,
                         int base_point1,
                         int base_point2,
-                        PairsVector* pairs) const {
+                        PairsVector* pairs,std::vector<float> ppf_) const {
   if (pairs == nullptr) return;
 
   pairs->clear();

@@ -52,10 +52,13 @@ void GlobalCfg::loadObjects(){
 		nh.getParam((std::string(objTopic) + "/location_pcd").c_str(), pcdLocation);
 
 		std::cout << "Loaded Object " << ii+1 << " : " << obj_name << ", " << obj_type << ", " << classId << std::endl;
-
 		Eigen::Vector3f symInfo(symmetry[0], symmetry[1], symmetry[2]);
+		
 		objects::Objects *tmpObj = new objects::Objects(env_p, obj_name, obj_type, symInfo, classId, 
 											modelDiscretization, pcdLocation, objLocation);
+
+		tmpObj->readPPFMap(env_p, obj_name);
+
 		gObjects.push_back(tmpObj);
 	}
 }

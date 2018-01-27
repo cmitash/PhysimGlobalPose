@@ -113,9 +113,12 @@ add_executable(physim_pose_visualization ${RIGIDBODY_EXAMPLE_OBJS}
                           src/hypothesis_verification/HypothesisSelection.cpp
                           src/visualization/PoseVisualization.cpp
                           )
+
+add_executable(physim_pose_featureGen src/main_genModelFeatures.cpp)
                           
 add_dependencies(physim_pose_estimation ${catkin_EXPORTED_TARGETS})
 add_dependencies(physim_pose_visualization ${catkin_EXPORTED_TARGETS})
+add_dependencies(physim_pose_featureGen ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(physim_pose_estimation
@@ -134,4 +137,12 @@ target_link_libraries(physim_pose_visualization
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libsuper4pcs.so
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
   ${BULLET_LIBS}
+)
+
+target_link_libraries(physim_pose_featureGen
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libsuper4pcs.so
+  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
 )
