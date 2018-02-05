@@ -5,10 +5,10 @@
 GlobalCfg *pCfg;
 
 // depth_sim package
-void initScene (int argc, char **argv);
-void addObjects(pcl::PolygonMesh::Ptr mesh);
-void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
-void clearScene();
+// void initScene (int argc, char **argv);
+// void addObjects(pcl::PolygonMesh::Ptr mesh);
+// void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
+// void clearScene();
 
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
@@ -84,7 +84,7 @@ int main(int argc, char **argv){
   pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
   ros::init(argc, argv, "physim_node");
   pCfg = new GlobalCfg();
-  initScene (0, NULL); // Initialize openGL for rendering
+  // initScene (0, NULL); // Initialize openGL for rendering
 
   pCfg->loadObjects();
 

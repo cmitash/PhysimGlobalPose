@@ -45,7 +45,7 @@
 #define _MATCH_4PCS_BASE_
 
 #include <vector>
-
+#include <map>
 #include "shared4pcs.h"
 #include "sampling.h"
 #include "accelerators/kdtree.h"
