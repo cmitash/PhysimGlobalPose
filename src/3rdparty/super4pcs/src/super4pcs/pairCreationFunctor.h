@@ -9,14 +9,15 @@
 #include "accelerators/pairExtraction/intersectionFunctor.h"
 #include "accelerators/pairExtraction/intersectionPrimitive.h"
 
-static float approximate_bin(float val, float disc) {
-  float lower_limit = val - fmod(val, disc);
-  float upper_limit = lower_limit + disc;
+static int approximate_bin(int val, int disc) {
+  int lower_limit = val - (val % disc);
+  int upper_limit = lower_limit + disc;
 
-  float dist_from_lower = val - lower_limit;
-  float dist_from_upper = upper_limit - val;
+  int dist_from_lower = val - lower_limit;
+  int dist_from_upper = upper_limit - val;
 
-  float closest = (dist_from_lower < dist_from_upper)? lower_limit:upper_limit;
+  int closest = (dist_from_lower < dist_from_upper)? lower_limit:upper_limit;
+
   return closest;
 }
 
@@ -36,7 +37,7 @@ public:
   double pair_normals_angle;
   double pair_distance;
   double pair_distance_epsilon;
-  std::vector<float> ppf_;
+  std::vector<int> ppf_;
 
   // Shared data
   match_4pcs::Match4PCSOptions options_;
@@ -214,14 +215,14 @@ public:
           if (! dist_good) return;
       }
 
-      float trans_disc = 0.02;
-      float rot_disc = 20;
+      int trans_disc = 15;
+      int rot_disc = 15;
 
       const VectorType u = q.pos() - p.pos();
-      float ppf_1 = u.norm();
-      float ppf_2 = atan2(q.normal().cross(u).norm(), q.normal().dot(u))*180/M_PI;
-      float ppf_3 = atan2(p.normal().cross(u).norm(), p.normal().dot(u))*180/M_PI;
-      float ppf_4 = atan2(q.normal().cross(p.normal()).norm(), q.normal().dot(p.normal()))*180/M_PI;
+      int ppf_1 = int(u.norm()*1000);
+      int ppf_2 = int(atan2(q.normal().cross(u).norm(), q.normal().dot(u))*180/M_PI);
+      int ppf_3 = int(atan2(p.normal().cross(u).norm(), p.normal().dot(u))*180/M_PI);
+      int ppf_4 = int(atan2(q.normal().cross(p.normal()).norm(), q.normal().dot(p.normal()))*180/M_PI);
 
       ppf_1 = approximate_bin(ppf_1, trans_disc);
       ppf_2 = approximate_bin(ppf_2, rot_disc);

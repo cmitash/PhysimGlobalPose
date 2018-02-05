@@ -3,7 +3,7 @@
 // Super4PCS package
 int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, std::pair<Eigen::Isometry3d, float> &bestHypothesis, 
             std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet, std::string probImagePath, 
-            std::map<std::vector<float>, float> PPFMap, float max_count_ppf, Eigen::Matrix3f camIntrinsic, std::string objName);
+            std::map<std::vector<int>, int> PPFMap, int max_count_ppf, Eigen::Matrix3f camIntrinsic, std::string objName);
 
 namespace pose_candidates{
 
@@ -19,7 +19,7 @@ namespace pose_candidates{
 	void ObjectPoseCandidateSet::generate(std::string objName, std::string scenePath, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModelSampled, 
-				std::map<std::vector<float>, float> PPFMap, float max_count_ppf, Eigen::Matrix3f camIntrinsic){
+				std::map<std::vector<int>, int> PPFMap, int max_count_ppf, Eigen::Matrix3f camIntrinsic){
 
 		if(pclSegment->points.size() <= 30) {
 			std::cout << "very few points returned from segmentation !!! returning default pose " << std::endl;

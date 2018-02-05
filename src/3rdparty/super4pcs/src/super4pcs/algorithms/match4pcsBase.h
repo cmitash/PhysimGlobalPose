@@ -124,7 +124,7 @@ public:
                           std::vector<Point3D>* Q_validation,
                           Eigen::Isometry3d &bestPose,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                          std::string probImagePath, std::map<std::vector<float>, float> PPFMap, float max_count_ppf,
+                          std::string probImagePath, std::map<std::vector<int>, int> PPFMap, int max_count_ppf,
                           Eigen::Matrix3f camIntrinsic, std::string objName);
 
 protected:
@@ -186,6 +186,7 @@ protected:
     std::vector<std::pair<int, int> > corr_pixels;
     // mode of operation
     int operMode;
+    clock_t start_time;
 
 #ifdef TEST_GLOBAL_TIMINGS
 
@@ -250,7 +251,7 @@ protected:
                          Eigen::Ref<MatrixType> transformation,
                          std::vector<Point3D>* Q,
                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                         std::map<std::vector<float>, float> PPFMap, float max_count_ppf);
+                         std::map<std::vector<int>, int> PPFMap, int max_count_ppf);
 
     // Tries one base and finds the best transformation for this base.
     // Returns true if the achieved LCP is greater than terminate_threshold_,
@@ -303,7 +304,7 @@ public:
                   Scalar pair_normals_angle,
                   Scalar pair_distance_epsilon, int base_point1,
                   int base_point2,
-                  PairsVector* pairs, std::vector<float> ppf_) const = 0;
+                  PairsVector* pairs, std::vector<int> ppf_) const = 0;
 
     // Finds congruent candidates in the set Q, given the invariants and threshold
     // distances. Returns true if a non empty set can be found, false otherwise.

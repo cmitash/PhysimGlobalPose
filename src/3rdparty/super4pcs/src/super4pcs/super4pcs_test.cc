@@ -32,14 +32,14 @@ int n_points = 400;
 double norm_diff = -1;
 
 // Maximum allowed computation time.
-int max_time_seconds = 1;
+int max_time_seconds = 3;
 
 bool use_super4pcs = true;
 
 int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, 
       std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
       std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
-      std::string probImagePath, std::map<std::vector<float>, float> PPFMap, float max_count_ppf, 
+      std::string probImagePath, std::map<std::vector<int>, int> PPFMap, int max_count_ppf, 
       Eigen::Matrix3f camIntrinsic, std::string objName) {
   
   using namespace Super4PCS;

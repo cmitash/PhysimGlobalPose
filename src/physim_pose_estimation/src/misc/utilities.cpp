@@ -53,7 +53,7 @@ namespace utilities{
 				unsigned short depthShort = depthImgRaw.at<unsigned short>(u,v);
 
 				//TODO: need to manually uncomment for APC objects
-				// depthShort = (depthShort << 13 | depthShort >> 3);
+				depthShort = (depthShort << 13 | depthShort >> 3);
 				
 				float depth = (float)depthShort/10000;
 				depthImg.at<float>(u, v) = depth;

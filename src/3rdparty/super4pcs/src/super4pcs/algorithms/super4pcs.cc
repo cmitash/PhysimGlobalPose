@@ -197,7 +197,7 @@ MatchSuper4PCS::ExtractPairs(Scalar pair_distance,
                              int base_point1,
                              int base_point2,
                              PairsVector* pairs, 
-                             std::vector<float> ppf_) const {
+                             std::vector<int> ppf_) const {
 
   using namespace Super4PCS::Accelerators::PairExtraction;
 
@@ -214,7 +214,7 @@ MatchSuper4PCS::ExtractPairs(Scalar pair_distance,
 
   pcfunctor_.setRadius(pair_distance);
   pcfunctor_.setBase(base_point1, base_point2, base_3D_);
-  pcfunctor_.ppf_ = std::vector<float>(4,0);
+  pcfunctor_.ppf_ = std::vector<int>(4,0);
   pcfunctor_.ppf_ = ppf_;
 
 #ifdef MULTISCALE
