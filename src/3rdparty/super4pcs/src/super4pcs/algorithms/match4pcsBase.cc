@@ -59,18 +59,6 @@
 #include "io/io.h"
 const double pi = std::acos(-1);
 
-static int approximate_bin(int val, int disc) {
-  int lower_limit = val - (val % disc);
-  int upper_limit = lower_limit + disc;
-
-  int dist_from_lower = val - lower_limit;
-  int dist_from_upper = upper_limit - val;
-
-  int closest = (dist_from_lower < dist_from_upper)? lower_limit:upper_limit;
-
-  return closest;
-}
-
 // Compute the closest points between two 3D line segments and obtain the two
 // invariants corresponding to the closet points. This is the "intersection"
 // point that determines the invariants. Since the 4 points are not exactly
@@ -145,6 +133,18 @@ distSegmentToSegment(const VectorType& p1, const VectorType& p2,
   return ( w + (invariant1 * u) - (invariant2 * v)).norm();
 }
 
+int approximate_bin(int val, int disc) {
+  int lower_limit = val - (val % disc);
+  int upper_limit = lower_limit + disc;
+
+  int dist_from_lower = val - lower_limit;
+  int dist_from_upper = upper_limit - val;
+
+  int closest = (dist_from_lower < dist_from_upper)? lower_limit:upper_limit;
+
+  return closest;
+}
+
 static Eigen::Isometry3d convertToIsometry3d(Eigen::Matrix<float, 4, 4> &transformation){
   Eigen::Isometry3d poseIsometry;
   poseIsometry.setIdentity();
@@ -160,7 +160,8 @@ static Eigen::Isometry3d convertToIsometry3d(Eigen::Matrix<float, 4, 4> &transfo
 namespace Super4PCS{
 
 Match4PCSBase::Match4PCSBase(const match_4pcs::Match4PCSOptions& options)
-  :number_of_trials_(0),
+  : max_number_of_trials_(0),
+    min_number_of_trials_(0),
     max_base_diameter_(-1),
     P_mean_distance_(1.0),
     best_LCP_(0.0F),
@@ -173,7 +174,9 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
                          const std::vector<Point3D>& Q_validation,
                          std::string probImagePath,
                          Eigen::Matrix3f camIntrinsic,
-                         std::string objName){
+                         std::string objName,
+                         std::map<std::vector<int>, int> PPFMap, 
+                         int max_count_ppf){
 
     start_time = clock();
     const Scalar kDiameterFraction = 0.3;
@@ -234,10 +237,19 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     // delta = P_mean_distance_ * delta;
     max_base_diameter_ = P_diameter_;  // * estimated_overlap_;
 
-    // maximum number of trails
-    number_of_trials_ = 5;
+    // maximum and minimum number of trails
+    max_number_of_trials_ = 1000;
+    min_number_of_trials_ = 10;
 
-    std::cout << "Super4PCS::Match4PCSBase::init:number_of_trials_: " << number_of_trials_ << std::endl;
+    // setting the mode of operation, 0->super4pcs, 1->stoCS
+    operMode = 1;
+
+    // translation and rotation discretization for point pair features
+    trans_disc = 15;
+    rot_disc = 15;
+
+    std::cout << "Super4PCS::Match4PCSBase::init:max_number_of_trials_: " << max_number_of_trials_ << std::endl;
+    std::cout << "Super4PCS::Match4PCSBase::init:min_number_of_trials_: " << min_number_of_trials_ << std::endl;
 
     current_trial_ = 0;
     best_LCP_ = 0.0;
@@ -251,9 +263,6 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
 
     // call Virtual handler
     Initialize(P, Q);
-
-    // setting the mode of operation
-    operMode = 1;
 
     // Reading the probability image
     cv::Mat probImgRaw = cv::imread(probImagePath, CV_16UC1);
@@ -281,6 +290,9 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
       corr_pixels.push_back(std::make_pair(row,col));
     }
 
+    this->PPFMap = PPFMap;
+    this->max_count_ppf = max_count_ppf;
+
     // vector<typename Point3D::VectorType> normals_q;
     // for (int i = 0; i < sampled_P_3D_.size(); ++i) {
     //     normals_q.push_back(sampled_P_3D_[i].normal());
@@ -288,7 +300,10 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     // IOManager iomananger;
     // iomananger.WritePly("/home/chaitanya/Desktop/" +  objName + ".ply", sampled_P_3D_, normals_q);
 
-    best_LCP_ = Verify(transform_);
+    if(operMode == 0)
+      best_LCP_ = Verify(transform_);
+    else
+      best_LCP_ = WeightedVerify(transform_);
     printf("Initial LCP: %f\n", best_LCP_);
 }
 
@@ -384,7 +399,6 @@ bool Match4PCSBase::TryQuadrilateral(Scalar &invariant1, Scalar &invariant2,
   return true;
 }
 
-
 // Selects a good base from P and computes its invariants. Returns false if
 // a good planar base cannot can be found.
 bool Match4PCSBase::SelectQuadrilateral(Scalar& invariant1, Scalar& invariant2,
@@ -460,6 +474,161 @@ bool Match4PCSBase::SelectQuadrilateral(Scalar& invariant1, Scalar& invariant2,
 
   // We failed to find good enough base..
   return false;
+}
+
+bool Match4PCSBase::computePPF(int &pIdx1, int &pIdx2, std::vector<int> &ppf_) {
+  VectorType p1 = sampled_P_3D_[pIdx1].pos();
+  VectorType p2 = sampled_P_3D_[pIdx2].pos();
+  VectorType n1 = sampled_P_3D_[pIdx1].normal();
+  VectorType n2 = sampled_P_3D_[pIdx2].normal();
+  VectorType u = p1 - p2;
+
+  int ppf_1 = int(u.norm()*1000);
+  int ppf_2 = int(atan2(n1.cross(u).norm(), n1.dot(u))*180/M_PI);
+  int ppf_3 = int(atan2(n2.cross(u).norm(), n2.dot(u))*180/M_PI);
+  int ppf_4 = int(atan2(n1.cross(n2).norm(), n1.dot(n2))*180/M_PI);
+
+  ppf_.push_back(approximate_bin(ppf_1, trans_disc));
+  ppf_.push_back(approximate_bin(ppf_2, rot_disc));
+  ppf_.push_back(approximate_bin(ppf_3, rot_disc));
+  ppf_.push_back(approximate_bin(ppf_4, rot_disc));
+}
+
+bool Match4PCSBase::SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invariant2,
+                                        int& base1, int& base2, int& base3,
+                                        int& base4) {
+  ofstream pFile;
+  std::vector<int> ppf_;
+
+  std::vector<float> curr_probabilities_(orig_probabilities_);
+
+  // Select point 1
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine generator (seed);
+  std::discrete_distribution<int> p_dist_1 (orig_probabilities_.begin(),orig_probabilities_.end());
+  base1 = p_dist_1(generator);
+
+  // Select point 2
+  for (int i = 0; i < sampled_P_3D_.size(); ++i) {
+    if(i == base1 || curr_probabilities_[i] == 0) {
+      curr_probabilities_[i] = 0;
+      continue;
+    }
+
+    // computing edge factor
+    ppf_.clear();
+    computePPF(base1, i, ppf_);
+    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    float edge_i_0 = (it == PPFMap.end()) ? 0:1;
+
+    curr_probabilities_[i] = orig_probabilities_[i]*
+      orig_probabilities_[base1]*
+      edge_i_0;
+  }
+
+  std::discrete_distribution<int> p_dist_2 (curr_probabilities_.begin(), curr_probabilities_.end());
+  base2 = p_dist_2(generator);
+
+  // Select point 3
+  const VectorType v_1 = sampled_P_3D_[base2].pos() - sampled_P_3D_[base1].pos();
+
+  for (int i = 0; i < sampled_P_3D_.size(); ++i) {
+    const VectorType v_2 = sampled_P_3D_[i].pos() - sampled_P_3D_[base1].pos();
+    float int_angle = acos(v_1.dot(v_2))*180/M_PI;
+    int_angle = std::min(int_angle, 180-int_angle);
+
+    if(i == base1 || i == base2 || curr_probabilities_[i] == 0 || int_angle < 30){
+      curr_probabilities_[i] = 0;
+      continue;
+    }
+
+    // computing edge factor
+    ppf_.clear();
+    computePPF(base2, i, ppf_);
+
+    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    float edge_i_1 = (it == PPFMap.end()) ? 0:1;
+
+    curr_probabilities_[i] = curr_probabilities_[i]*
+      orig_probabilities_[base2]*
+      edge_i_1;
+  }
+
+  std::discrete_distribution<int> p_dist_3 (curr_probabilities_.begin(), curr_probabilities_.end());
+  base3 = p_dist_3(generator);
+
+  // Select point 4
+  for (int i = 0; i < sampled_P_3D_.size(); ++i) {
+    if(i == base1 || i == base2 || i == base3 || curr_probabilities_[i] == 0){
+      curr_probabilities_[i] = 0;
+      continue;
+    }
+
+    // The 4th point will be a one that is close to be planar
+    const double x1 = sampled_P_3D_[base1].x();
+    const double y1 = sampled_P_3D_[base1].y();
+    const double z1 = sampled_P_3D_[base1].z();
+    const double x2 = sampled_P_3D_[base2].x();
+    const double y2 = sampled_P_3D_[base2].y();
+    const double z2 = sampled_P_3D_[base2].z();
+    const double x3 = sampled_P_3D_[base3].x();
+    const double y3 = sampled_P_3D_[base3].y();
+    const double z3 = sampled_P_3D_[base3].z();
+
+    // Fit a plane
+    Scalar denom = (-x3 * y2 * z1 + x2 * y3 * z1 + x3 * y1 * z2 - x1 * y3 * z2 -
+                    x2 * y1 * z3 + x1 * y2 * z3);
+
+    if (denom != 0) {
+      Scalar A =
+          (-y2 * z1 + y3 * z1 + y1 * z2 - y3 * z2 - y1 * z3 + y2 * z3) / denom;
+      Scalar B =
+          (x2 * z1 - x3 * z1 - x1 * z2 + x3 * z2 + x1 * z3 - x2 * z3) / denom;
+      Scalar C =
+          (-x2 * y1 + x3 * y1 + x1 * y2 - x3 * y2 - x1 * y3 + x2 * y3) / denom;
+
+      const Scalar planar_distance = std::abs(A * sampled_P_3D_[i].x() + B * sampled_P_3D_[i].y() +
+        C * sampled_P_3D_[i].z() - 1.0);
+
+      if(planar_distance > 0.04 || 
+        (sampled_P_3D_[i].pos()- sampled_P_3D_[base1].pos()).norm() < 0.01 || 
+        (sampled_P_3D_[i].pos()- sampled_P_3D_[base2].pos()).norm() < 0.01 || 
+        (sampled_P_3D_[i].pos()- sampled_P_3D_[base3].pos()).norm() < 0.01 ) {
+        curr_probabilities_[i] = 0;
+        continue;  
+      }
+    }
+
+    // computing edge factor
+    ppf_.clear();
+    computePPF(base3, i, ppf_);
+    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    float edge_i_2 = (it == PPFMap.end()) ? 0:1;
+
+    curr_probabilities_[i] =  curr_probabilities_[i]*
+      orig_probabilities_[base3]*
+      edge_i_2;
+  }
+
+  std::discrete_distribution<int> p_dist_4 (curr_probabilities_.begin(),curr_probabilities_.end());
+  base4 = p_dist_4(generator);
+
+  base_3D_[0] = sampled_P_3D_[base1];
+  base_3D_[1] = sampled_P_3D_[base2];
+  base_3D_[2] = sampled_P_3D_[base3];
+  base_3D_[3] = sampled_P_3D_[base4];
+
+  // ofstream pFile1;
+  // pFile1.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixels.txt", std::ofstream::out | std::ofstream::app);
+  // pFile1 << corr_pixels[base1].first << " " << corr_pixels[base1].second << " "
+  //   << corr_pixels[base2].first << " " << corr_pixels[base2].second << " "
+  //   << corr_pixels[base3].first << " " << corr_pixels[base3].second << " "
+  //   << corr_pixels[base4].first << " " << corr_pixels[base4].second << std::endl;
+  // pFile1.close();
+
+  TryQuadrilateral(invariant1, invariant2, base1, base2, base3, base4);
+
+  return true;
 }
 
 void Match4PCSBase::initKdTree(){
@@ -642,11 +811,6 @@ bool Match4PCSBase::ComputeRigidTransformation(const std::array< std::pair<Point
       if ( ratioDev > Scalar(0.1) )
           return kLargeNumber;
 
-//      std::cout << ratio1 << " "
-//                << ratio2 << " "
-//                << ratioDev << " "
-//                << ratioMean << std::endl;
-
       scaleEst = ratioMean;
 
       // apply scale factor to q
@@ -672,7 +836,6 @@ bool Match4PCSBase::ComputeRigidTransformation(const std::array< std::pair<Point
   vector_q2.normalize();
   VectorType vector_q3 = vector_q1.cross(vector_q2);
 
-  //cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
   Eigen::Matrix<Scalar, 3, 3> rotation = Eigen::Matrix<Scalar, 3, 3>::Identity();
 
   Eigen::Matrix<Scalar, 3, 3> rotate_p;
@@ -752,10 +915,43 @@ Match4PCSBase::Verify(const Eigen::Ref<const MatrixType> &mat) {
   const Scalar epsilon = options_.delta;
   
   int good_points = 0;
+
+  const size_t number_of_points = validation_Q_3D.size();
+  const int terminate_value = best_LCP_ * number_of_points;
+
+  const Scalar sq_eps = epsilon*epsilon;
+
+  for (int i = 0; i < number_of_points; ++i) {
+
+    // Use the kdtree to get the nearest neighbor
+    Super4PCS::KdTree<Scalar>::Index resId =
+    kd_tree_.doQueryRestrictedClosestIndex(
+                (mat * validation_Q_3D[i].pos().homogeneous()).head<3>(),
+                sq_eps);
+
+    if ( resId != Super4PCS::KdTree<Scalar>::invalidIndex() )
+        good_points++;
+
+    // We can terminate if there is no longer chance to get better than the
+    // current best LCP.
+    if (number_of_points - i + good_points < terminate_value) {
+      break;
+    }
+  }
+
+  return Scalar(good_points) / Scalar(number_of_points);
+}
+
+Match4PCSBase::Scalar
+Match4PCSBase::WeightedVerify(const Eigen::Ref<const MatrixType> &mat) {
+
+  // We allow factor 2 scaling in the normalization.
+  const Scalar epsilon = options_.delta;
+  
+  int good_points = 0;
   float weighted_match = 0;
 
   const size_t number_of_points = validation_Q_3D.size();
-  // const int terminate_value = best_LCP_ * number_of_points;
 
   const Scalar sq_eps = epsilon*epsilon;
 
@@ -778,17 +974,9 @@ Match4PCSBase::Verify(const Eigen::Ref<const MatrixType> &mat) {
         
         good_points++;
     }
-
-    // Chaitanya:: Let's see the effect on time
-    // We can terminate if there is no longer chance to get better than the
-    // current best LCP.
-    // if (number_of_points - i + good_points < terminate_value) {
-    //   break;
-    // }
   }
 
   return weighted_match / Scalar(number_of_points);
-  // return Scalar(good_points) / Scalar(number_of_points);
 }
 
 // The main 4PCS function. Computes the best rigid transformation and transfoms
@@ -803,24 +991,19 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
                                      Eigen::Matrix3f camIntrinsic, std::string objName) {
 
   if (Q == nullptr) return kLargeNumber;
-  init(P, *Q, *Q_validation, probImagePath, camIntrinsic, objName);
+  init(P, *Q, *Q_validation, probImagePath, camIntrinsic, objName, PPFMap, max_count_ppf);
 
   Eigen::Matrix<Scalar, 4, 4> transformation;
   transformation = MatrixType::Identity();
 
-  Perform_N_steps(number_of_trials_, transformation, Q, allPose, PPFMap, max_count_ppf);
+  Perform_N_steps(max_number_of_trials_, transformation, Q, allPose);
 
   bestPose = convertToIsometry3d(transformation);
 
-  ofstream pFile1;
-  pFile1.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixels.txt", std::ofstream::out | std::ofstream::app);
-  pFile1 << std::endl;
-  pFile1.close();
-
-  ofstream pFile;
-  pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-  pFile << std::endl << std::endl;
-  pFile.close();
+  // ofstream pFile1;
+  // pFile1.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixels.txt", std::ofstream::out | std::ofstream::app);
+  // pFile1 << std::endl;
+  // pFile1.close();
 
   return best_LCP_;
 }
@@ -831,241 +1014,20 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
 bool Match4PCSBase::Perform_N_steps(int n,
                                     Eigen::Ref<MatrixType> transformation,
                                     std::vector<Point3D>* Q,
-                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                                    std::map<std::vector<int>, int> PPFMap, int max_count_ppf) {
+                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
 
   clock_t time_init = clock();
 	using std::chrono::system_clock;
   if (Q == nullptr) return false;
   
-  int trans_disc = 15;
-  int rot_disc = 15;
-
   Scalar last_best_LCP = best_LCP_;
 
   bool ok = false;
   std::chrono::time_point<system_clock> t0 = system_clock::now(), end;
 
-  int min_number_of_trials_ = 5;
   int ii = 0;
   for (ii = current_trial_; ii < current_trial_ + n; ++ii) {
-    std::vector<float> curr_probabilities_(orig_probabilities_);
-
-    if(operMode == 0){
-      BaseGraph *b_t = NULL;
-      ok = TryOneBase(allPose, b_t);
-    }
-    else if(operMode == 1) {
-      Scalar invariant1, invariant2;
-      std::vector<int> baseIdx(4);
-      ofstream pFile;
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << "b1" << std::endl;
-        pFile.close();
-      for (int kk = 0; kk < curr_probabilities_.size(); kk++){
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << corr_pixels[kk].first << " " << corr_pixels[kk].second << " " << curr_probabilities_[kk] << std::endl;
-        pFile.close();
-      }
-      
-
-      // Select point 1
-      unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-      std::default_random_engine generator (seed);
-      std::discrete_distribution<int> p_dist_1 (orig_probabilities_.begin(),orig_probabilities_.end());
-      baseIdx[0] = p_dist_1(generator);
-
-      // Select point 2
-      for (int i = 0; i < sampled_P_3D_.size(); ++i) {
-        if(i == baseIdx[0] || curr_probabilities_[i] == 0){
-          curr_probabilities_[i] = 0;
-          continue;
-        }
-
-        // computing edge factor
-        const VectorType u = sampled_P_3D_[baseIdx[0]].pos() - sampled_P_3D_[i].pos();
-
-        int ppf_1 = int(u.norm()*1000);
-        int ppf_2 = int(atan2(sampled_P_3D_[baseIdx[0]].normal().cross(u).norm(), sampled_P_3D_[baseIdx[0]].normal().dot(u))*180/M_PI);
-        int ppf_3 = int(atan2(sampled_P_3D_[i].normal().cross(u).norm(), sampled_P_3D_[i].normal().dot(u))*180/M_PI);
-        int ppf_4 = int(atan2(sampled_P_3D_[baseIdx[0]].normal().cross(sampled_P_3D_[i].normal()).norm(), sampled_P_3D_[baseIdx[0]].normal().dot(sampled_P_3D_[i].normal()))*180/M_PI);
-
-        std::vector<int> ppf_;
-        ppf_.push_back(approximate_bin(ppf_1, trans_disc));
-        ppf_.push_back(approximate_bin(ppf_2, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_3, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_4, rot_disc));
-
-        std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
-
-        float edge_i_0 = (it == PPFMap.end()) ? 0:1;
-
-        curr_probabilities_[i] = orig_probabilities_[i]*
-          orig_probabilities_[baseIdx[0]]*
-          edge_i_0;
-      }
-      
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << "b2" << std::endl;
-        pFile.close();
-      for (int kk = 0; kk < curr_probabilities_.size(); kk++){
-        
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << corr_pixels[kk].first << " " << corr_pixels[kk].second << " " << curr_probabilities_[kk] << std::endl;
-        pFile.close();
-      }
-
-      std::discrete_distribution<int> p_dist_2 (curr_probabilities_.begin(),curr_probabilities_.end());
-      baseIdx[1] = p_dist_2(generator);
-
-      // vector between the two sampled points
-      const VectorType v_1 = sampled_P_3D_[baseIdx[1]].pos() - sampled_P_3D_[baseIdx[0]].pos();
-
-      // Select point 3
-      for (int i = 0; i < sampled_P_3D_.size(); ++i) {
-
-        const VectorType v_2 = sampled_P_3D_[i].pos() - sampled_P_3D_[baseIdx[0]].pos();
-        float int_angle = acos(v_1.dot(v_2))*180/M_PI;
-        int_angle = std::min(int_angle, 180-int_angle);
-
-        if(i == baseIdx[0] || i == baseIdx[1] || curr_probabilities_[i] == 0 || int_angle < 30){
-          curr_probabilities_[i] = 0;
-          continue;
-        }
-
-        // computing edge factor
-        const VectorType u = sampled_P_3D_[baseIdx[1]].pos() - sampled_P_3D_[i].pos();
-
-        int ppf_1 = int(u.norm()*1000);
-        int ppf_2 = int(atan2(sampled_P_3D_[baseIdx[1]].normal().cross(u).norm(), sampled_P_3D_[baseIdx[1]].normal().dot(u))*180/M_PI);
-        int ppf_3 = int(atan2(sampled_P_3D_[i].normal().cross(u).norm(), sampled_P_3D_[i].normal().dot(u))*180/M_PI);
-        int ppf_4 = int(atan2(sampled_P_3D_[baseIdx[1]].normal().cross(sampled_P_3D_[i].normal()).norm(), sampled_P_3D_[baseIdx[1]].normal().dot(sampled_P_3D_[i].normal()))*180/M_PI);
-
-        std::vector<int> ppf_;
-        ppf_.push_back(approximate_bin(ppf_1, trans_disc));
-        ppf_.push_back(approximate_bin(ppf_2, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_3, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_4, rot_disc));
-
-        std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
-
-        float edge_i_1 = (it == PPFMap.end()) ? 0:1;
-
-        curr_probabilities_[i] = curr_probabilities_[i]*
-          orig_probabilities_[baseIdx[1]]*
-          edge_i_1;
-      }
-      
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << "b3" << std::endl;
-        pFile.close();
-      for (int kk = 0; kk < curr_probabilities_.size(); kk++){
-        
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << corr_pixels[kk].first << " " << corr_pixels[kk].second << " " << curr_probabilities_[kk] << std::endl;
-        pFile.close();
-      }
-
-      std::discrete_distribution<int> p_dist_3 (curr_probabilities_.begin(),curr_probabilities_.end());
-      baseIdx[2] = p_dist_3(generator);
-
-      // Select point 4
-      for (int i = 0; i < sampled_P_3D_.size(); ++i) {
-        if(i == baseIdx[0] || i == baseIdx[1] || i == baseIdx[2] || curr_probabilities_[i] == 0){
-          curr_probabilities_[i] = 0;
-          continue;
-        }
-
-        // The 4th point will be a one that is close to be planar
-        const double x1 = sampled_P_3D_[baseIdx[0]].x();
-        const double y1 = sampled_P_3D_[baseIdx[0]].y();
-        const double z1 = sampled_P_3D_[baseIdx[0]].z();
-        const double x2 = sampled_P_3D_[baseIdx[1]].x();
-        const double y2 = sampled_P_3D_[baseIdx[1]].y();
-        const double z2 = sampled_P_3D_[baseIdx[1]].z();
-        const double x3 = sampled_P_3D_[baseIdx[2]].x();
-        const double y3 = sampled_P_3D_[baseIdx[2]].y();
-        const double z3 = sampled_P_3D_[baseIdx[2]].z();
-
-        // Fit a plane
-        Scalar denom = (-x3 * y2 * z1 + x2 * y3 * z1 + x3 * y1 * z2 - x1 * y3 * z2 -
-                        x2 * y1 * z3 + x1 * y2 * z3);
-
-        if (denom != 0) {
-          Scalar A =
-              (-y2 * z1 + y3 * z1 + y1 * z2 - y3 * z2 - y1 * z3 + y2 * z3) / denom;
-          Scalar B =
-              (x2 * z1 - x3 * z1 - x1 * z2 + x3 * z2 + x1 * z3 - x2 * z3) / denom;
-          Scalar C =
-              (-x2 * y1 + x3 * y1 + x1 * y2 - x3 * y2 - x1 * y3 + x2 * y3) / denom;
-
-          const Scalar planar_distance = std::abs(A * sampled_P_3D_[i].x() + B * sampled_P_3D_[i].y() +
-            C * sampled_P_3D_[i].z() - 1.0);
-
-          if(planar_distance > 0.04 || 
-            (sampled_P_3D_[i].pos()- sampled_P_3D_[baseIdx[0]].pos()).norm() < 0.01 || 
-            (sampled_P_3D_[i].pos()- sampled_P_3D_[baseIdx[1]].pos()).norm() < 0.01 || 
-            (sampled_P_3D_[i].pos()- sampled_P_3D_[baseIdx[2]].pos()).norm() < 0.01 ) {
-            curr_probabilities_[i] = 0;
-            continue;  
-          }
-        }
-
-        // computing edge factor
-        const VectorType u = sampled_P_3D_[baseIdx[2]].pos() - sampled_P_3D_[i].pos();
-
-        int ppf_1 = int(u.norm()*1000);
-        int ppf_2 = int(atan2(sampled_P_3D_[baseIdx[2]].normal().cross(u).norm(), sampled_P_3D_[baseIdx[2]].normal().dot(u))*180/M_PI);
-        int ppf_3 = int(atan2(sampled_P_3D_[i].normal().cross(u).norm(), sampled_P_3D_[i].normal().dot(u))*180/M_PI);
-        int ppf_4 = int(atan2(sampled_P_3D_[baseIdx[2]].normal().cross(sampled_P_3D_[i].normal()).norm(), sampled_P_3D_[baseIdx[2]].normal().dot(sampled_P_3D_[i].normal()))*180/M_PI);
-
-        std::vector<int> ppf_;
-        ppf_.push_back(approximate_bin(ppf_1, trans_disc));
-        ppf_.push_back(approximate_bin(ppf_2, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_3, rot_disc));
-        ppf_.push_back(approximate_bin(ppf_4, rot_disc));
-
-        std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
-
-        float edge_i_2 = (it == PPFMap.end()) ? 0:1;
-
-        curr_probabilities_[i] =  curr_probabilities_[i]*
-          orig_probabilities_[baseIdx[2]]*
-          edge_i_2;
-      }
-
-      
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << "b4" << std::endl;
-        pFile.close();
-      for (int kk = 0; kk < curr_probabilities_.size(); kk++){
-        
-        pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixel_prob.txt", std::ofstream::out | std::ofstream::app);
-        pFile << corr_pixels[kk].first << " " << corr_pixels[kk].second << " " << curr_probabilities_[kk] << std::endl;
-        pFile.close();
-      }
-
-      std::discrete_distribution<int> p_dist_4 (curr_probabilities_.begin(),curr_probabilities_.end());
-      baseIdx[3] = p_dist_4(generator);
-
-      base_3D_[0] = sampled_P_3D_[baseIdx[0]];
-      base_3D_[1] = sampled_P_3D_[baseIdx[1]];
-      base_3D_[2] = sampled_P_3D_[baseIdx[2]];
-      base_3D_[3] = sampled_P_3D_[baseIdx[3]];
-
-      ofstream pFile1;
-      pFile1.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixels.txt", std::ofstream::out | std::ofstream::app);
-      pFile1 << corr_pixels[baseIdx[0]].first << " " << corr_pixels[baseIdx[0]].second << " "
-        << corr_pixels[baseIdx[1]].first << " " << corr_pixels[baseIdx[1]].second << " "
-        << corr_pixels[baseIdx[2]].first << " " << corr_pixels[baseIdx[2]].second << " "
-        << corr_pixels[baseIdx[3]].first << " " << corr_pixels[baseIdx[3]].second << std::endl;
-      pFile1.close();
-
-      TryQuadrilateral(invariant1, invariant2, baseIdx[0], baseIdx[1], baseIdx[2], baseIdx[3]);
-
-      BaseGraph *b_t = new BaseGraph(baseIdx, invariant1, invariant2);
-      ok = TryOneBase(allPose, b_t);
-    }
+    ok = TryOneBase(allPose);
     
     std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:BaseNumber: " << ii+1 << std::endl;
     std::cout << "Super4PCS::Match4PCSBase::Perform_N_steps:TotalCongruentQuad: " << allPose.size() << std::endl;
@@ -1081,10 +1043,10 @@ bool Match4PCSBase::Perform_N_steps(int n,
   current_trial_ += n;
   *Q = Q_copy_;
 
-  ofstream pFile;
-  pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
-  pFile << float( clock () - time_init ) /  CLOCKS_PER_SEC << " " << ii << " " << allPose.size() << std::endl;
-  pFile.close();
+  // ofstream pFile;
+  // pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
+  // pFile << float( clock () - time_init ) /  CLOCKS_PER_SEC << " " << ii << " " << allPose.size() << std::endl;
+  // pFile.close();
 
    if (best_LCP_ > last_best_LCP) {
     // The transformation has been computed between the two point clouds centered
@@ -1099,18 +1061,15 @@ bool Match4PCSBase::Perform_N_steps(int n,
     transformation = transform_;
   }
 
-  return ok || current_trial_ >= number_of_trials_;
+  return ok || current_trial_ >= max_number_of_trials_;
 }
 
 // Pick one base, finds congruent 4-points in Q, verifies for all
 // transformations, and retains the best transformation and LCP. This is
 // a complete RANSAC iteration.
-bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t) {
+bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
   Scalar invariant1, invariant2;
   int base_id1, base_id2, base_id3, base_id4;
-
-  int trans_disc = 15;
-  int rot_disc = 15;
 
   if(operMode == 0) {
     if (!SelectQuadrilateral(invariant1, invariant2, base_id1, base_id2,
@@ -1119,13 +1078,10 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
     }
   }
   else if(operMode == 1){
-    base_id1 = b_t->baseIds_[0];
-    base_id2 = b_t->baseIds_[1];
-    base_id3 = b_t->baseIds_[2];
-    base_id4 = b_t->baseIds_[3];
-
-    invariant1 = b_t->invariant1;
-    invariant2 = b_t->invariant2;
+    if (!SelectQuadrilateralStoCS(invariant1, invariant2, base_id1, base_id2,
+                             base_id3, base_id4)) {
+      return false;
+    }
   }
 
   // Computes distance between pairs.
@@ -1143,30 +1099,8 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
   
   // computing point pair features
   std::vector<int> ppf_1, ppf_2;
-  const VectorType u_1 = base_3D_[0].pos() - base_3D_[1].pos();
-  int ppf_11 = int(u_1.norm()*1000);
-  int ppf_12 = int(atan2(base_3D_[0].normal().cross(u_1).norm(), base_3D_[0].normal().dot(u_1))*180/M_PI);
-  int ppf_13 = int(atan2(base_3D_[1].normal().cross(u_1).norm(), base_3D_[1].normal().dot(u_1))*180/M_PI);
-  int ppf_14 = int(atan2(base_3D_[0].normal().cross(base_3D_[1].normal()).norm(), base_3D_[0].normal().dot(base_3D_[1].normal()))*180/M_PI);
-  
-  ppf_1.push_back(approximate_bin(ppf_11, trans_disc));
-  ppf_1.push_back(approximate_bin(ppf_12, rot_disc));
-  ppf_1.push_back(approximate_bin(ppf_13, rot_disc));
-  ppf_1.push_back(approximate_bin(ppf_14, rot_disc));
-
-  const VectorType u_2 = base_3D_[2].pos() - base_3D_[3].pos();
-  int ppf_21 = int(u_2.norm()*1000);
-  int ppf_22 = int(atan2(base_3D_[2].normal().cross(u_2).norm(), base_3D_[2].normal().dot(u_2))*180/M_PI);
-  int ppf_23 = int(atan2(base_3D_[3].normal().cross(u_2).norm(), base_3D_[3].normal().dot(u_2))*180/M_PI);
-  int ppf_24 = int(atan2(base_3D_[2].normal().cross(base_3D_[3].normal()).norm(), base_3D_[2].normal().dot(base_3D_[3].normal()))*180/M_PI);
-
-  ppf_2.push_back(approximate_bin(ppf_21, trans_disc));
-  ppf_2.push_back(approximate_bin(ppf_22, rot_disc));
-  ppf_2.push_back(approximate_bin(ppf_23, rot_disc));
-  ppf_2.push_back(approximate_bin(ppf_24, rot_disc));
-
-  // std::cout << "ppf_1: " <<  ppf_1[0] << " " << ppf_1[1] << " " << ppf_1[2] << " " << ppf_1[3] << std::endl;
-  // std::cout << "ppf_2: " <<  ppf_2[0] << " " << ppf_2[1] << " " << ppf_2[2] << " " << ppf_2[3] << std::endl;
+  computePPF(base_id1, base_id2, ppf_1);
+  computePPF(base_id3, base_id4, ppf_2);
 
   ExtractPairs(distance1, normal_angle1, distance_factor * options_.delta, 0,
                   1, &pairs1, ppf_1);
@@ -1183,7 +1117,6 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
     return false;
   }
 
-
   if (!FindCongruentQuadrilaterals(invariant1, invariant2,
                                    distance_factor * options_.delta,
                                    distance_factor * options_.delta,
@@ -1193,29 +1126,12 @@ bool Match4PCSBase::TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float>
     return false;
   }
 
-  // std::cout << "Super4PCS::TryOneBase::Time after finding congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
-
   size_t nb = 0;
 
   bool match = TryCongruentSet(base_id1, base_id2, base_id3, base_id4,
                                congruent_quads,
                                nb, allPose);
-
-  // std::cout << "Super4PCS::TryOneBase::Time after trying congruent set: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
-
   return match;
-}
-
-BaseGraph::BaseGraph(std::vector<int> baseIds, float invariant1, float invariant2){
-  baseIds_.push_back(baseIds[0]);
-  baseIds_.push_back(baseIds[1]);
-  baseIds_.push_back(baseIds[2]);
-  baseIds_.push_back(baseIds[3]);
-  
-  this->invariant1 = invariant1;
-  this->invariant2 = invariant2;
-
-  jointProbability = 1;
 }
 
 } // namespace Super4PCS

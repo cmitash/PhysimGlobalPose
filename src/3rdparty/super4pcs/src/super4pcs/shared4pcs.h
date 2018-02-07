@@ -110,8 +110,6 @@ class Point3D {
   VectorType rgb_{-1.0f, -1.0f, -1.0f};
 };
 
-
-
 // Holds a base from P. The base contains 4 points (indices) from the set P.
 struct Quadrilateral {
     std::array <int, 4> vertices;

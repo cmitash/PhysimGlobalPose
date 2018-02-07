@@ -215,6 +215,7 @@ public:
           if (! dist_good) return;
       }
 
+      // pair filtering - PPF constraint starts.
       int trans_disc = 15;
       int rot_disc = 15;
 
@@ -228,10 +229,10 @@ public:
       ppf_2 = approximate_bin(ppf_2, rot_disc);
       ppf_3 = approximate_bin(ppf_3, rot_disc);
       ppf_4 = approximate_bin(ppf_4, rot_disc);
-      // std::cout << "ppf: " << ppf_1 << " " << ppf_2 << " " << ppf_3 << " " << ppf_4 << std::endl;
 
       if(ppf_1 != ppf_[0] || ppf_4 != ppf_[3])return;
       if(!(ppf_2 == ppf_[1] && ppf_3 == ppf_[2]) && !(ppf_2 == ppf_[2] && ppf_3 == ppf_[1])) return;
+      // pair filtering - PPF constraint ends.
       
       // need cleaning here
       if (options_.max_angle > 0){

@@ -178,7 +178,7 @@ namespace segmentation{
               float probVal = probImage.at<float>(u,v);
               float bkgProb = bkgProbImg.at<float>(u,v);
               // probVal = probVal/(float)sumImg.at<float>(u,v);
-              if(probVal > 0.8 && bkgProb < 0.8)
+              if(probVal > 0.2 && bkgProb < 0.8)
                 sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
               }
           }

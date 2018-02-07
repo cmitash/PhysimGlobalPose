@@ -20,19 +20,19 @@ using namespace match_4pcs;
 double delta = 0.005;
 
 // Estimated overlap (see the paper).
-double overlap = 0.5;
+double overlap = 0.5; // not used
 
 // Maximum norm of RGB values between corresponded points. 1e9 means don't use.
 double max_color = -1;
 
 // Number of sampled points in both files. The 4PCS allows a very aggressive sampling.
-int n_points = 400;
+int n_points = 400; // not used
 
 // Maximum angle (degrees) between corresponded normals.
 double norm_diff = -1;
 
 // Maximum allowed computation time.
-int max_time_seconds = 3;
+int max_time_seconds = 2;
 
 bool use_super4pcs = true;
 

@@ -60,30 +60,6 @@
 
 namespace Super4PCS{
 
-class BaseGraph{
-    public:
-        using Point3D = match_4pcs::Point3D;
-
-        std::vector<int> baseIds_;
-        std::vector<std::pair<int,int> > basePixels;
-        std::vector<float> probVals;
-
-        float invariant1; 
-        float invariant2;
-
-        float jointProbability;
-
-        BaseGraph(std::vector<int> baseIds, float invariant1, float invariant2);
-        ~BaseGraph(){}
-}; // class BaseGraph
-
-class Compare{
-    public:
-        bool operator() (BaseGraph* lhs, BaseGraph* rhs){
-            return (lhs->jointProbability < rhs->jointProbability);
-        }
-}; // class Compare
-
 class Match4PCSBase {
 
 public:
@@ -129,7 +105,9 @@ public:
 
 protected:
     // Number of trials. Every trial picks random base from P.
-    int number_of_trials_;
+    int max_number_of_trials_;
+    // Minimum number of trials that the algorithm shall run
+    int min_number_of_trials_;
     // Maximum base diameter. It is computed automatically from the diameter of
     // P and the estimated overlap and used to limit the distance between the
     // points in the base in P so that the probability to have all points in
@@ -163,6 +141,7 @@ protected:
     std::vector<Point3D> sampled_P_3D_;
     // Sampled Q (3D coordinates).
     std::vector<Point3D> sampled_Q_3D_;
+    // Sampled Q (3D coordinates) for verification stage
     std::vector<Point3D> validation_Q_3D;
     // The 3D points of the base.
     std::vector<Point3D> base_3D_;
@@ -183,10 +162,20 @@ protected:
     match_4pcs::Match4PCSOptions options_;
     // point probabilities for sampled_P_3D
     std::vector<float> orig_probabilities_;
+    // corresponding 2d pixels of sampled_P_3D
     std::vector<std::pair<int, int> > corr_pixels;
-    // mode of operation
+    // mode of operation: 0->super4pcs, 1->stoCS
     int operMode;
+    // start time of the algorithm
     clock_t start_time;
+    // hashmap of point pair features to the count on model
+    std::map<std::vector<int>, int> PPFMap; 
+    // maximum count of any ppf on model
+    int max_count_ppf;
+    // translational discretization for point pair features
+    int trans_disc;
+    // rotational discretization for point pair features
+    int rot_disc;
 
 #ifdef TEST_GLOBAL_TIMINGS
 
@@ -242,6 +231,7 @@ protected:
     // in Q. Returns the current LCP. R is the rotation matrix, (tx,ty,tz) is
     // the translation vector and (cx,cy,cz) is the center of transformation.template <class MatrixDerived>
     Scalar Verify(const Eigen::Ref<const MatrixType> & mat);
+    Scalar WeightedVerify(const Eigen::Ref<const MatrixType> &mat);
 
     // Performs n RANSAC iterations, each one of them containing base selection,
     // finding congruent sets and verification. Returns true if the process can be
@@ -250,13 +240,12 @@ protected:
     bool Perform_N_steps(int n,
                          Eigen::Ref<MatrixType> transformation,
                          std::vector<Point3D>* Q,
-                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                         std::map<std::vector<int>, int> PPFMap, int max_count_ppf);
+                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
     // Tries one base and finds the best transformation for this base.
     // Returns true if the achieved LCP is greater than terminate_threshold_,
     // else otherwise.
-    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, BaseGraph *b_t);
+    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -276,7 +265,8 @@ public:
                          const std::vector<Point3D>& Q,
                          const std::vector<Point3D>& Q_validation,
                          std::string probImagePath,
-                         Eigen::Matrix3f camIntrinsic, std::string objName);
+                         Eigen::Matrix3f camIntrinsic, std::string objName,
+                         std::map<std::vector<int>, int> PPFMap, int max_count_ppf);
 
     // Selects a quadrilateral from P and returns the corresponding invariants
     // and point indices. Returns true if a quadrilateral has been found, false
@@ -284,7 +274,13 @@ public:
     bool SelectQuadrilateral(Scalar &invariant1, Scalar &invariant2,
                              int& base1, int& base2, int& base3, int& base4);
 
+    bool SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invariant2,
+                                        int& base1, int& base2, int& base3,
+                                        int& base4);
+
     const std::vector<Point3D>& base3D() const { return base_3D_; }
+
+    bool computePPF(int &pIdx1, int &pIdx2, std::vector<int> &ppf_);
 
     // Constructs pairs of points in Q, corresponding to a single pair in the
     // in basein P.
