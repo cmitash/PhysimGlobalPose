@@ -1074,253 +1074,6 @@ bool Match4PCSBase::ComputeRigidTransformation(const std::array< std::pair<Point
   return true;
 }
 
-/********************************* function: toQuaternion **********************************************
-from wikipedia
-*******************************************************************************************************/
-
-void Match4PCSBase::toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q){
-  double roll = eulAngles[0];
-  double pitch = eulAngles[1];
-  double yaw = eulAngles[2];
-  double cy = cos(yaw * 0.5);
-  double sy = sin(yaw * 0.5);
-  double cr = cos(roll * 0.5);
-  double sr = sin(roll * 0.5);
-  double cp = cos(pitch * 0.5);
-  double sp = sin(pitch * 0.5);
-
-  q.w() = cy * cr * cp + sy * sr * sp;
-  q.x() = cy * sr * cp - sy * cr * sp;
-  q.y() = cy * cr * sp + sy * sr * cp;
-  q.z() = sy * cr * cp - cy * sr * sp;
-}
-
-/********************************* function: convert6DToMatrix *****************************************
-  *******************************************************************************************************/
-
-void Match4PCSBase::convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index){
-  pose.setIdentity();
-  pose(0,3) = points.at<float>(index, 0);
-  pose(1,3) = points.at<float>(index, 1);
-  pose(2,3) = points.at<float>(index, 2);
-
-  Eigen::Matrix3f rotMat;
-  Eigen::Quaternionf q;
-  Eigen::Vector3f rotXYZ;
-  rotXYZ << points.at<float>(index, 3) * M_PI/180.0, 
-        points.at<float>(index, 4) * M_PI/180.0,
-        points.at<float>(index, 5) * M_PI/180.0;
-  toQuaternion(rotXYZ, q);
-  rotMat = q.toRotationMatrix();
-
-      for(int ii = 0;ii < 3; ii++)
-    for(int jj=0; jj < 3; jj++){
-      pose(ii,jj) = rotMat(ii,jj);
-    }
-}
-
-/********************************* function: toEulerianAngle *******************************************
-  from wikipedia
-  *******************************************************************************************************/
-
-void Match4PCSBase::toEulerianAngle(Eigen::Quaternionf& q, Eigen::Vector3f& eulAngles){
-  // roll (x-axis rotation)
-  double sinr = +2.0 * (q.w() * q.x() + q.y() * q.z());
-  double cosr = +1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y());
-  eulAngles[0] = atan2(sinr, cosr);
-
-  // pitch (y-axis rotation)
-  double sinp = +2.0 * (q.w() * q.y() - q.z() * q.x());
-  if (fabs(sinp) >= 1)
-    eulAngles[1] = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-  else
-    eulAngles[1] = asin(sinp);
-
-  // yaw (z-axis rotation)
-  double siny = +2.0 * (q.w() * q.z() + q.x() * q.y());
-  double cosy = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());  
-  eulAngles[2] = atan2(siny, cosy);
-}
-
-/********************************* function: convertToCVMat ********************************************
-*******************************************************************************************************/
-void Match4PCSBase::convertToCVMat(Eigen::Matrix4f &pose, cv::Mat &cvPose){
-  cvPose.at<float>(0, 0) = pose(0,3);
-  cvPose.at<float>(0, 1) = pose(1,3);
-  cvPose.at<float>(0, 2) = pose(2,3);
-
-  Eigen::Matrix3f rotMat;
-  for(int ii = 0;ii < 3; ii++)
-    for(int jj=0; jj < 3; jj++){
-      rotMat(ii,jj) = pose(ii,jj);
-    }
-  Eigen::Quaternionf rotMatQ(rotMat);
-  Eigen::Vector3f rotErrXYZ;
-  toEulerianAngle(rotMatQ, rotErrXYZ);
-  rotErrXYZ = rotErrXYZ*180.0/M_PI;
-
-  cvPose.at<float>(0, 3) = rotErrXYZ(0);
-  cvPose.at<float>(0, 4) = rotErrXYZ(1);
-  cvPose.at<float>(0, 5) = rotErrXYZ(2);
-
-  // std::cout << cvPose.at<float>(0, 0) << " " << cvPose.at<float>(0, 1) << " " << cvPose.at<float>(0, 2) << " " <<
-  // cvPose.at<float>(0, 3) << " " << cvPose.at<float>(0, 4) << " " << cvPose.at<float>(0, 5) << std::endl;
-}
-
-/********************************* function: performKMeansPose *****************************************
-*******************************************************************************************************/
-void Match4PCSBase::performKMeansPose(int k_clusters, std::vector< std::pair <Eigen::Isometry3d, float> > &poses,
-  std::vector<std::vector<int> > &clusteredPoses) {
-  cv::Mat clusterCenters, clusterIndices;
-  cv::Mat points(poses.size(), 6, CV_32F);
-  cv::Mat meanColumnwise, stdColumnwise;
-  cv::Mat meanValue, stdValue;
-  cv::Mat colStd(1, points.cols, CV_32FC1);
-  cv::Mat colMean(1, points.cols, CV_32FC1);
-
-  for (int ii=0; ii<poses.size(); ii++) {
-    cv::Mat cvPose(1,6, CV_32F);
-    
-    Eigen::Matrix4f t_form;
-    for(int i=0; i<4; i++)
-      for(int j=0; j<4; j++)
-        t_form(i, j) = poses[ii].first.matrix()(i,j);
-
-    convertToCVMat(t_form, cvPose);
-
-    if(isnan(cvPose.at<float>(0,0)))
-      points.at<float>(ii,0) = 0;
-    else
-      points.at<float>(ii,0) = cvPose.at<float>(0,0);
-
-    if(isnan(cvPose.at<float>(0,1)))
-      points.at<float>(ii,1) = 0;
-    else
-      points.at<float>(ii,1) = cvPose.at<float>(0,1);
-
-    if(isnan(cvPose.at<float>(0,2)))
-      points.at<float>(ii,2) = 0;
-    else
-      points.at<float>(ii,2) = cvPose.at<float>(0,2);
-
-    if(isnan(cvPose.at<float>(0,3)))
-      points.at<float>(ii,3) = 0;
-    else
-      points.at<float>(ii,3) = cvPose.at<float>(0,3);
-
-    if(isnan(cvPose.at<float>(0,4)))
-      points.at<float>(ii,4) = 0;
-    else
-      points.at<float>(ii,4) = cvPose.at<float>(0,4);
-
-    if(isnan(cvPose.at<float>(0,5)))
-      points.at<float>(ii,5) = 0;
-    else
-      points.at<float>(ii,5) = cvPose.at<float>(0,5);
-  }
-  
-  for (int ii = 0; ii < points.cols; ii++){           
-    cv::meanStdDev(points.col(ii), meanValue, stdValue);
-    colStd.at<float>(0, ii) = (float)stdValue.at<double>(0);
-    colMean.at<float>(0, ii) = (float)meanValue.at<double>(0);
-
-     std::cout << "mean: " << colMean.at<float>(0, ii) << " std: " << colStd.at<float>(0, ii) << std::endl;
-  }
-
-  cv::repeat(colMean, points.rows, 1, meanColumnwise);
-  cv::repeat(colStd, points.rows, 1, stdColumnwise);
-  points = (points - meanColumnwise)/stdColumnwise;
-  
-  std::cout << "Performing k-means" << std::endl; 
-  cv::kmeans(points, k_clusters, clusterIndices, cv::TermCriteria(CV_TERMCRIT_ITER , 50, 0.001)
-    , /*int attempts*/ 1, cv::KMEANS_PP_CENTERS, clusterCenters);
-  std::cout << "Performed k-means" << std::endl; 
-
-  for(int ii=0; ii<clusterIndices.rows; ii++){
-    clusteredPoses[clusterIndices.at<int>(ii,0)].push_back(ii);
-  }
-  std::cout << "returning from k-means" << std::endl; 
-
-}
-
-/********************************* function: performKMeansBase *****************************************
-*******************************************************************************************************/
-void Match4PCSBase::performKMeansBase(int k_clusters, std::vector<Super4PCS::BaseGraph*> &baseSet,
-  std::vector<std::vector<int> > &clusteredBases) {
-  cv::Mat clusterCenters, clusterIndices;
-  cv::Mat points(baseSet.size(), 6, CV_32F);
-  cv::Mat meanColumnwise, stdColumnwise;
-  cv::Mat meanValue, stdValue;
-  cv::Mat colStd(1, points.cols, CV_32FC1);
-  cv::Mat colMean(1, points.cols, CV_32FC1);
-
-  for (int ii=0; ii<baseSet.size(); ii++) {
-    Eigen::Matrix<Scalar, 3, 1> base_centroid = (sampled_P_3D_[baseSet[ii]->baseIds_[0]].pos() + 
-                                            sampled_P_3D_[baseSet[ii]->baseIds_[1]].pos() + 
-                                            sampled_P_3D_[baseSet[ii]->baseIds_[2]].pos() +
-                                            sampled_P_3D_[baseSet[ii]->baseIds_[3]].pos()) / Scalar(4);
-
-    VectorType u =
-            sampled_P_3D_[baseSet[ii]->baseIds_[2]].pos() -
-            sampled_P_3D_[baseSet[ii]->baseIds_[0]].pos();
-    VectorType w =
-            sampled_P_3D_[baseSet[ii]->baseIds_[3]].pos() -
-            sampled_P_3D_[baseSet[ii]->baseIds_[1]].pos();
-    VectorType cross_prod = u.cross(w);
-
-    points.at<float>(ii,0) = base_centroid(0,0);
-    points.at<float>(ii,1) = base_centroid(1,0);
-    points.at<float>(ii,2) = base_centroid(2,0);
-
-    points.at<float>(ii,3) = cross_prod(0);
-    points.at<float>(ii,4) = cross_prod(1);
-    points.at<float>(ii,5) = cross_prod(2);
-  }
-
-  for (int ii = 0; ii < points.cols; ii++){           
-    cv::meanStdDev(points.col(ii), meanValue, stdValue);
-    colStd.at<float>(0, ii) = (float)stdValue.at<double>(0);
-    colMean.at<float>(0, ii) = (float)meanValue.at<double>(0);
-  }
-
-  cv::repeat(colMean, points.rows, 1, meanColumnwise);
-  cv::repeat(colStd, points.rows, 1, stdColumnwise);
-  points = (points - meanColumnwise)/stdColumnwise;
-
-  cv::kmeans(points, k_clusters, clusterIndices, cv::TermCriteria(CV_TERMCRIT_ITER , 10, 0.001)
-    , /*int attempts*/ 1, cv::KMEANS_PP_CENTERS, clusterCenters);
-
-  for(int ii=0; ii<clusterIndices.rows; ii++){
-    clusteredBases[clusterIndices.at<int>(ii,0)].push_back(ii);
-  }
-}
-
-// float Match4PCSBase::c_dist_pose(int index_1, int index_2) {
-//   size_t number_of_points = hull_Q_3D.size();
-
-//   // Build the kdtree.
-//   Super4PCS::KdTree<Scalar> kd_tree_hull = 
-//       Super4PCS::KdTree<Scalar>(number_of_points);
-
-//   for (size_t ii = 0; ii < number_of_points; ++ii)
-//     kd_tree_hull.add((allTransforms[index_1]*hull_Q_3D[ii].pos().homogeneous()).head<3>());
-//   kd_tree_hull.finalize();
-
-//   const Scalar sq_eps = 1;
-//   float max_distance = 0;
-//   for(int ii=0; ii<hull_Q_3D.size(); ii++){
-//     Eigen::Matrix<Scalar, 3, 1> p = (allTransforms[index_2]*hull_Q_3D[ii].pos().homogeneous()).head<3>();
-//     Super4PCS::KdTree<Scalar>::Index resId = kd_tree_hull.doQueryRestrictedClosestIndex(p, sq_eps);
-//     Eigen::Matrix<Scalar, 3, 1> q = (allTransforms[index_1]*hull_Q_3D[resId].pos().homogeneous()).head<3>();
-
-//     float dist = (p - q).norm();
-//     if(dist > max_distance)
-//       max_distance = dist;
-//   }
-
-//   return max_distance;
-// }
-
 float Match4PCSBase::c_dist_pose(int index_1, int index_2) {
   size_t number_of_points = hull_Q_3D.size();
 
@@ -1572,28 +1325,11 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
     }
   }
   
-
   std::cout << "Base set size: " << baseSet.size() << std::endl;
 
   // Step 2: Subsample the bases
   std::unordered_set<int> sampled_bases;
   sampled_bases.clear();
-
-  // clustering
-  // clock_t base_clustering_start = clock ();
-  // int curr_cluster = 0;
-  // int num_clusters = 20;
-  // std::vector<std::vector<int> > clusteredBases(num_clusters);
-  // performKMeansBase(num_clusters, baseSet, clusteredBases);
-
-  // while(sampled_bases.size() < max_number_of_bases_){
-  //   if(clusteredBases[curr_cluster].size()) {
-  //     int sample = rand() % clusteredBases[curr_cluster].size();
-  //     sampled_bases.insert(clusteredBases[curr_cluster][sample]);
-  //   }
-  //   curr_cluster = (curr_cluster + 1) % num_clusters;
-  // }
-  // clustering_time += float( clock () - base_clustering_start ) /  CLOCKS_PER_SEC;
 
   // Method 1:pick all bases
   // for (int ii = 0; ii < sample_pool_size; ii++) {
@@ -1610,52 +1346,6 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   // for (int ii = 0; ii < max_number_of_bases_; ii++) {
   //   sampled_bases.insert(ii);
   //   std::cout << baseSet[ii]->jointProbability << std::endl;
-  // }
-
-  // Method 3: rejection sampling after sorting
-  // std::sort(baseSet.begin(), baseSet.end(), Compare());
-  // const Scalar epsilon = 0.02;
-  // const Scalar sq_eps = epsilon*epsilon;
-  // std::unordered_set<std::tuple<int, int, int, int> > already_sampled_bases;
-  // already_sampled_bases.clear();
-
-  // int num_sampled_base = 0;
-  // for (int ii = 0; ii < sample_pool_size; ii++){
-  //   bool already_sampled = false;
-  //   std::vector<int> selected_base(baseSet[ii]->baseIds_, baseSet[ii]->baseIds_+4);
-  //   std::sort(selected_base.begin(), selected_base.end());
-
-  //   // std::cout << "sampled base: " << selected_base[0] << " " << selected_base[1] << " " <<
-  //   //           " " << selected_base[2] << " " << selected_base[3] << std::endl;
-
-  //   auto base_it = already_sampled_bases.find(std::make_tuple(selected_base[0], selected_base[1], selected_base[2], selected_base[3]));
-  //   if(base_it != already_sampled_bases.end()) already_sampled = true;
-
-  //   if(!already_sampled) {
-  //     // update the sampled base
-  //     std::vector<Super4PCS::KdTree<Scalar>::Index> neighborIds1, neighborIds2, neighborIds3, neighborIds4;
-  //     kd_tree_.doQueryDistIndices(sampled_P_3D_[selected_base[0]].pos() ,sq_eps, neighborIds1);
-  //     kd_tree_.doQueryDistIndices(sampled_P_3D_[selected_base[1]].pos() ,sq_eps, neighborIds2);
-  //     kd_tree_.doQueryDistIndices(sampled_P_3D_[selected_base[2]].pos() ,sq_eps, neighborIds3);
-  //     kd_tree_.doQueryDistIndices(sampled_P_3D_[selected_base[3]].pos() ,sq_eps, neighborIds4);
-
-  //     for (int p1 = 0; p1 < neighborIds1.size(); p1++)
-  //       for (int p2 = 0; p2 < neighborIds2.size(); p2++)
-  //         for (int p3 = 0; p3 < neighborIds3.size(); p3++)
-  //           for (int p4 = 0; p4 < neighborIds4.size(); p4++) {
-  //             std::vector<int> used_quad{(int)neighborIds1[p1], (int)neighborIds2[p2], 
-  //                                         (int)neighborIds3[p3], (int)neighborIds4[p4]};
-  //             std::sort(used_quad.begin(), used_quad.end());
-  //             already_sampled_bases.insert(std::make_tuple(used_quad[0], used_quad[1], used_quad[2], used_quad[3]));
-  //           }
-
-  //     std::cout << "sampled base: " << selected_base[0] << " " << selected_base[1] << " " <<
-  //       " " << selected_base[2] << " " << selected_base[3] << std::endl;
-  //     sampled_bases.insert(ii);
-  //     num_sampled_base++;
-  //   }
-    
-  //   if(num_sampled_base >= max_number_of_bases_) break;
   // }
 
   // Method 4: Greedy dispersion: maximize the minimum distance to already sampled bases
@@ -1705,28 +1395,6 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   // Step 4: Subsample the transforms
   std::unordered_set<int> sampled_indices;
   sampled_indices.clear();
-
-  // clustering
-  // clock_t k_means_start = clock ();
-  // int curr_pose_cluster = 0;
-  // int num_pose_clusters = 20;
-  // std::vector<std::vector<int> > clusteredPoses(num_pose_clusters);
-  // if(allPose.size() > max_number_of_verifications_) {
-  //   performKMeansPose(num_pose_clusters, allPose, clusteredPoses);
-
-  //   while(sampled_indices.size() < max_number_of_verifications_){
-  //     if(clusteredPoses[curr_pose_cluster].size()) {
-  //       int sample = rand() % clusteredPoses[curr_pose_cluster].size();
-  //       sampled_indices.insert(clusteredPoses[curr_pose_cluster][sample]);
-  //     }
-  //     curr_pose_cluster = (curr_pose_cluster + 1) % num_pose_clusters;
-  //   }
-  // }
-  // else {
-  //  for(int ii=0; ii<allPose.size(); ii++)
-  //    sampled_indices.insert(ii);
-  // }
-  // clustering_time += float( clock () - k_means_start ) /  CLOCKS_PER_SEC;
 
   clock_t verification_start = clock ();
 
@@ -1799,8 +1467,8 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   ofstream pFile;
   pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
   pFile << total_time << " " << base_selection_time << " "
-        << congruent_set_extraction << " " << congruent_set_verification << " "
-        << clustering_time << " " << allPose.size() << " " << sampled_bases.size() << std::endl;
+        << congruent_set_extraction << " " << congruent_set_verification 
+        << " " << allPose.size() << " " << sampled_bases.size() << std::endl;
   pFile.close();
 
   return true;

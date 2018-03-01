@@ -265,17 +265,9 @@ protected:
     Initialize(const std::vector<Point3D>& P,
                const std::vector<Point3D>& Q) = 0;
 
-    void convertToCVMat(Eigen::Matrix4f &pose, cv::Mat &cvPose);
-    void performKMeansPose(int k_clusters, std::vector< std::pair <Eigen::Isometry3d, float> > &poses,
-                        std::vector<std::vector<int> > &clusteredPoses);
-    void performKMeansBase(int k_clusters, std::vector<Super4PCS::BaseGraph*> &baseSet,
-                        std::vector<std::vector<int> > &clusteredBases);
     float c_dist(int index_1, int index_2);
     float c_dist_mean(int index_1, int index_2);
     float c_dist_pose(int index_1, int index_2);
-    void toEulerianAngle(Eigen::Quaternionf& q, Eigen::Vector3f& eulAngles);
-    void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index);
-    void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q);
 
     // Public virtual methods.
     // Set as public for testing and debug purpose.
