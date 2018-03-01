@@ -53,7 +53,7 @@ namespace utilities{
 				unsigned short depthShort = depthImgRaw.at<unsigned short>(u,v);
 
 				//TODO: need to manually uncomment for APC objects
-				depthShort = (depthShort << 13 | depthShort >> 3);
+				// depthShort = (depthShort << 13 | depthShort >> 3);
 				
 				float depth = (float)depthShort/10000;
 				depthImg.at<float>(u, v) = depth;
@@ -594,6 +594,41 @@ namespace utilities{
 		pFile << score << std::endl;
 		pFile.close();
 	}
+
+	/********************************* function: performTrICP **********************************************
+	*******************************************************************************************************/
+
+	void performTrICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
+		Eigen::Isometry3d &currTransform,
+		Eigen::Isometry3d &finalTransform,
+		float trimPercentage){
+		PointCloud::Ptr modelCloud (new PointCloud);
+		PointCloud::Ptr segmentCloud (new PointCloud);
+
+		Eigen::Matrix4f tform;
+		
+		copyPointCloud(*pclModel, *modelCloud);
+		copyPointCloud(*pclSegment, *segmentCloud);
+
+		// initialize trimmed ICP
+		pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
+		pcl::recognition::TrimmedICP<pcl::PointXYZ, float> tricp;
+		tricp.init(modelCloud);
+		tricp.setNewToOldEnergyRatio(1.f);
+
+		float numPoints = trimPercentage*segmentCloud->points.size();
+		
+		// get current object transform
+		utilities::convertToMatrix(currTransform, tform);
+		tform = tform.inverse().eval();
+
+		tricp.align(*segmentCloud, abs(numPoints), tform);
+		tform = tform.inverse().eval();
+
+		utilities::convertToIsometry3d(tform, finalTransform);
+	}
+
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
 

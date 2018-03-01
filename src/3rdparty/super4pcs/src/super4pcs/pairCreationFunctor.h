@@ -216,7 +216,7 @@ public:
       }
 
       // pair filtering - PPF constraint starts.
-      int trans_disc = 15;
+      int trans_disc = 10;
       int rot_disc = 15;
 
       const VectorType u = q.pos() - p.pos();

@@ -13,6 +13,7 @@ namespace pose_visualization{
 		void loadSceneCloud(cv::Mat depthImage, cv::Mat colorImage, Eigen::Matrix3f camIntrinsic, Eigen::Matrix4f camPose);
 		void startViz();
 		void loadObjectModels(pcl::PolygonMesh meshObj, std::vector<double> poseObj, std::string meshName);
+		void setCamera();
 
 		boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	};

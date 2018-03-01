@@ -178,7 +178,7 @@ namespace segmentation{
               float probVal = probImage.at<float>(u,v);
               float bkgProb = bkgProbImg.at<float>(u,v);
               // probVal = probVal/(float)sumImg.at<float>(u,v);
-              if(probVal > 0.2 && bkgProb < 0.8)
+              if(probVal > 0.4 && bkgProb < 0.8)
                 sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
               }
           }
@@ -197,6 +197,7 @@ namespace segmentation{
   void GTSegmentation::compute2dSegment(GlobalCfg *gCfg, scene_cfg::SceneCfg *sCfg){
     for(int ii=0; ii<sCfg->numObjects; ii++){
       cv::Mat classImage = cv::imread(sCfg->scenePath + "frame-000000.mask.png", -1);
+      cv::Mat probImage = cv::Mat::zeros(sCfg->pSceneObjects[ii]->objMask.rows, sCfg->pSceneObjects[ii]->objMask.cols, CV_16UC1);
 
       int imgWidth = classImage.cols;
       int imgHeight = classImage.rows;
@@ -206,8 +207,11 @@ namespace segmentation{
           int classVal = (int)classImage.at<uchar>(u,v);
           if(sCfg->pSceneObjects[ii]->pObject->objIdx == classVal){
             sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
+            probImage.at<float>(u,v) = 10000;
           }
         }
+
+      cv::imwrite(sCfg->scenePath + "debug_super4PCS/" + sCfg->pSceneObjects[ii]->pObject->objName + ".png", probImage);
     }
   }
 
@@ -225,15 +229,32 @@ namespace segmentation{
       utilities::convert3dUnOrganizedRGB(objDepth, sCfg->colorImage, sCfg->camIntrinsic, segment);
 
       clock_t t0 = clock();
-      pcl::NormalEstimation<pcl::PointXYZRGB, pcl::PointXYZRGBNormal> ne;
-      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB> ());
-      sCfg->pSceneObjects[ii]->pclSegment = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);;
+      sCfg->pSceneObjects[ii]->pclSegment = pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBNormal>);
 
       copyPointCloud(*segment, *sCfg->pSceneObjects[ii]->pclSegment);
-      ne.setInputCloud (segment);
-      ne.setSearchMethod (tree);
-      ne.setRadiusSearch (0.005);
-      ne.compute (*sCfg->pSceneObjects[ii]->pclSegment);
+
+      // pcl::NormalEstimation<pcl::PointXYZRGB, pcl::PointXYZRGBNormal> ne;
+      // pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB> ());
+      // ne.setInputCloud (segment);
+      // ne.setSearchMethod (tree);
+      // ne.setRadiusSearch (0.005);
+      // ne.setViewPoint (0, 0, 0);
+      // ne.compute (*sCfg->pSceneObjects[ii]->pclSegment);
+
+      pcl::VoxelGrid<pcl::PointXYZRGB> sor;
+      sor.setInputCloud (segment);
+      sor.setLeafSize (0.01, 0.01, 0.01);
+      sor.filter (*segment);
+
+      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+      pcl::MovingLeastSquares<pcl::PointXYZRGB, pcl::PointXYZRGBNormal> mls;
+      mls.setComputeNormals (true);
+      mls.setInputCloud (segment);
+      mls.setPolynomialFit (true);
+      mls.setSearchMethod (tree);
+      mls.setSearchRadius (0.02);
+      mls.process (*sCfg->pSceneObjects[ii]->pclSegment);
+
       std::cout << "number of points: " << segment->points.size() <<std::endl;
       std::cout << "Time after normal estimation: " << float( clock () - t0 ) /  CLOCKS_PER_SEC << std::endl;
     }

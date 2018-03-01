@@ -14,6 +14,8 @@ namespace hypothesis_selection{
 
 		for(int ii=0; ii<pCfg->numObjects; ii++){
 			pCfg->pSceneObjects[ii]->objPose = pCfg->pSceneObjects[ii]->hypotheses->bestHypothesis.first;
+			// utilities::performTrICP(pCfg->pSceneObjects[ii]->pclSegment, pCfg->pSceneObjects[ii]->pObject->pclModel, 
+			// 				pCfg->pSceneObjects[ii]->objPose, pCfg->pSceneObjects[ii]->objPose, 0.9);
 		}
 	}
 }

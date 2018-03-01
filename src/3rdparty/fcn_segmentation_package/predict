@@ -168,14 +168,14 @@ if __name__ == '__main__':
     model_name = 'FCN_Vgg16_32s'
     image_size = (640, 640)
 
-    # weight_file = 'ycb_weights.hdf5'
-    weight_file = 'apc_weights.hdf5'
+    weight_file = 'ycb_weights.hdf5'
+    # weight_file = 'apc_weights.hdf5'
 
-    # num_classes = 22
-    num_classes = 12
+    num_classes = 22
+    # num_classes = 12
 
-    # object_map = ycb_objects
-    object_map = apc_objects
+    object_map = ycb_objects
+    # object_map = apc_objects
 
     checkpoint_path = os.path.join(g_repo_path, 'src/3rdparty/fcn_segmentation_package/Models/FCN_Vgg16_32s', weight_file)
 

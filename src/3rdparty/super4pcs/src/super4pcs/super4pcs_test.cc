@@ -36,19 +36,19 @@ int max_time_seconds = 2;
 
 bool use_super4pcs = true;
 
-int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, 
+void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, 
       std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
       std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
       std::string probImagePath, std::map<std::vector<int>, int> PPFMap, int max_count_ppf, 
-      Eigen::Matrix3f camIntrinsic, std::string objName) {
-  
+      Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath) {
+
   using namespace Super4PCS;
 
-  vector<Point3D> set1, set2, set3;
-  vector<Eigen::Matrix2f> tex_coords1, tex_coords2, tex_coords3;
-  vector<typename Point3D::VectorType> normals1, normals2, normals3;
-  vector<tripple> tris1, tris2, tris3;
-  vector<std::string> mtls1, mtls2, mtls3;
+  vector<Point3D> set1, set2, set3, set4;
+  vector<Eigen::Matrix2f> tex_coords1, tex_coords2, tex_coords3,tex_coords4;
+  vector<typename Point3D::VectorType> normals1, normals2, normals3, normals4;
+  vector<tripple> tris1, tris2, tris3,tris4;
+  vector<std::string> mtls1, mtls2, mtls3,mtls4;
   Eigen::Isometry3d bestPose;
   float bestscore;
 
@@ -73,6 +73,12 @@ int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::
     exit(-1);
   }
 
+  if (!iomananger.ReadObject(("/home/chaitanya/github/PhysimGlobalPose/models/" + objName + "/hull.ply").c_str(), 
+                  set4, tex_coords4, normals4, tris4, mtls4)) {
+    perror("Can't read input set4");
+    exit(-1);
+  }
+
   // clean only when we have pset to avoid wrong face to point indexation
   if (tris1.size() == 0)
     Utils::CleanInvalidNormals(set1, normals1);
@@ -94,14 +100,11 @@ int getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::
 
   try {
     MatchSuper4PCS matcher(options);
-    bestscore = matcher.ComputeTransformation(set1, &set3, &set2, bestPose, hypothesisSet, probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName);
+    bestscore = matcher.ComputeTransformation(set1, &set3, &set2, &set4, bestPose, hypothesisSet, probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName, scenePath);
   }
   catch (...) {
     std::cout << "[Unknown Error]: Aborting with code -3 ..." << std::endl;
-    return -3;
   }
 
   bestHypothesis = std::make_pair(bestPose, bestscore);
-
-  return 0;
 }

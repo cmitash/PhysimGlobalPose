@@ -39,6 +39,9 @@ namespace scene_cfg{
 		PointCloudRGB::Ptr SampledSceneCloud(new PointCloudRGB);
 		sceneCloud = PointCloudRGB::Ptr(new PointCloudRGB);
 		utilities::convert3dOrganizedRGB(depthImage, colorImage, camIntrinsic, sceneCloud);
+		
+		utilities::pc_viz->resize(sceneCloud->width*sceneCloud->height);
+		copyPointCloud(*sceneCloud, *utilities::pc_viz);
 
 		// Creating the filtering object: downsample the dataset using a leaf size of 0.5cm
 		pcl::VoxelGrid<pcl::PointXYZRGB> sor;
@@ -369,14 +372,30 @@ namespace scene_cfg{
 
 	/********************************* generateHypothesis **************************************************
 	*******************************************************************************************************/
-
 	void SceneCfg::generateHypothesis(){
+		// std::thread pcs_threads[numObjects];
+
 		for(int ii=0; ii<numObjects; ii++){
 			pSceneObjects[ii]->hypotheses = new pose_candidates::ObjectPoseCandidateSet();
+
 			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, 
 				pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel, pSceneObjects[ii]->pObject->pclModelSampled,
-				pSceneObjects[ii]->pObject->PPFMap, pSceneObjects[ii]->pObject->max_count_ppf , camIntrinsic);
+				pSceneObjects[ii]->pObject->PPFMap, pSceneObjects[ii]->pObject->max_count_ppf , camPose, camIntrinsic/*, pcs_threads[ii]*/);
+
+			std::map<std::string, geometry_msgs::Pose>::iterator it = utilities::anyTimePoseArray.find(pSceneObjects[ii]->pObject->objName);
+			Eigen::Vector3d trans = pSceneObjects[ii]->hypotheses->bestHypothesis.first.translation();
+    		Eigen::Quaterniond rot(pSceneObjects[ii]->hypotheses->bestHypothesis.first.rotation());
+		    it->second.position.x = trans[0];
+		    it->second.position.y = trans[1];
+		    it->second.position.z = trans[2];
+		    it->second.orientation.x = rot.x();
+		    it->second.orientation.y = rot.y();
+		    it->second.orientation.z = rot.z();
+		    it->second.orientation.w = rot.w();
 		}
+
+		// for(int ii=0; ii<numObjects; ii++)
+		// 	pcs_threads[ii].join();
 	}
 	/********************************* performHypothesisSelection ******************************************
 	*******************************************************************************************************/

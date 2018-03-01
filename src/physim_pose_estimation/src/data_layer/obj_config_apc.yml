@@ -1,0 +1,80 @@
+objects:
+  num_objects: 11
+  modelDiscretization: 0.01
+  object_1:
+    name: 'crayola_24_ct'
+    type: 'APC'
+    location_obj: 'crayola_24_ct/crayola_24_ct.obj'
+    location_pcd: 'crayola_24_ct/sampled_model.ply'
+    symmetry: [180,180,180]
+    classId: 1
+  object_2:
+    name: 'expo_dry_erase_board_eraser'
+    type: 'APC'
+    location_obj: 'expo_dry_erase_board_eraser/expo_dry_erase_board_eraser.obj'
+    location_pcd: 'expo_dry_erase_board_eraser/sampled_model.ply'
+    symmetry: [180,180,180]
+    classId: 2
+  object_3:
+    name: 'folgers_classic_roast_coffee'
+    type: 'APC'
+    location_obj: 'folgers_classic_roast_coffee/folgers_classic_roast_coffee.obj'
+    location_pcd: 'folgers_classic_roast_coffee/sampled_model.ply'
+    symmetry: [360,180,180]
+    classId: 3
+  object_4:
+    name: 'scotch_duct_tape'
+    type: 'APC'
+    location_obj: 'scotch_duct_tape/scotch_duct_tape.obj'
+    location_pcd: 'scotch_duct_tape/sampled_model.ply'
+    symmetry: [180,180,360]
+    classId: 4
+  object_5:
+    name: 'up_glucose_bottle'
+    type: 'APC'
+    location_obj: 'up_glucose_bottle/up_glucose_bottle.obj'
+    location_pcd: 'up_glucose_bottle/sampled_model.ply'
+    symmetry: [360,0,0]
+    classId: 5
+  object_6:
+    name: 'laugh_out_loud_joke_book'
+    type: 'APC'
+    location_obj: 'laugh_out_loud_joke_book/laugh_out_loud_joke_book.obj'
+    location_pcd: 'laugh_out_loud_joke_book/sampled_model.ply'
+    symmetry: [180,180,180]
+    classId: 6
+  object_7:
+    name: 'soft_white_lightbulb'
+    type: 'APC'
+    location_obj: 'soft_white_lightbulb/soft_white_lightbulb.obj'
+    location_pcd: 'soft_white_lightbulb/sampled_model.ply'
+    symmetry: [90,180,180]
+    classId: 7
+  object_8:
+    name: 'kleenex_tissue_box'
+    type: 'APC'
+    location_obj: 'kleenex_tissue_box/kleenex_tissue_box.obj'
+    location_pcd: 'kleenex_tissue_box/sampled_model.ply'
+    symmetry: [90,90,90]
+    classId: 8
+  object_9:
+    name: 'dove_beauty_bar'
+    type: 'APC'
+    location_obj: 'dove_beauty_bar/dove_beauty_bar.obj'
+    location_pcd: 'dove_beauty_bar/sampled_model.ply'
+    symmetry: [180,180,180]
+    classId: 9
+  object_10:
+    name: 'elmers_washable_no_run_school_glue'
+    type: 'APC'
+    location_obj: 'elmers_washable_no_run_school_glue/elmers_washable_no_run_school_glue.obj'
+    location_pcd: 'elmers_washable_no_run_school_glue/sampled_model.ply'
+    symmetry: [180,0,0]
+    classId: 10
+  object_11:
+    name: 'rawlings_baseball'
+    type: 'APC'
+    location_obj: 'rawlings_baseball/rawlings_baseball.obj'
+    location_pcd: 'rawlings_baseball/sampled_model.ply'
+    symmetry: [360,360,360]
+    classId: 11

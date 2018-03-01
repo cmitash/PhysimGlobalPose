@@ -51,8 +51,8 @@ IOManager::ReadPly(const char *filename,
                                         format,
                                         numOfVertexProperties,
                                         haveColor);
-  if (haveColor)
-    cout << "haveColor" << endl;
+  // if (haveColor)
+  //   cout << "haveColor" << endl;
   if (headerSize != 0){
     if (format == BINARY_BIG_ENDIAN_1)
       return readBinary1Body (filename, headerSize, numOfVertices,

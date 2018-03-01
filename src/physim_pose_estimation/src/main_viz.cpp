@@ -5,6 +5,11 @@
 // global config pointer
 GlobalCfg *pCfg;
 
+namespace utilities{
+  std::map<std::string, geometry_msgs::Pose> anyTimePoseArray;
+  PointCloudRGB::Ptr pc_viz;
+}
+
 /********************************* function: main *******************************************************
 ********************************************************************************************************/
 

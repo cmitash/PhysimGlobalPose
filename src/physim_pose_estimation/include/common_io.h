@@ -11,9 +11,11 @@
 #include <queue>
 #include <climits>
 #include <boost/assign.hpp>
+#include <thread>
 
 // Basic ROS
 #include <ros/ros.h>
+#include <pcl_ros/point_cloud.h>
 
 // Basic PCL
 #include <pcl/point_types.h>
@@ -33,6 +35,7 @@
 // For Visualization
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/cloud_viewer.h>
+#include <visualization_msgs/Marker.h>
 
 // For RANSAC
 #include <pcl/sample_consensus/method_types.h>
@@ -49,6 +52,8 @@
 
 // For normal estimation
 #include <pcl/features/normal_3d.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/surface/mls.h>
 
 #include <geometry_msgs/Pose.h>
 
@@ -61,6 +66,10 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloudRGB;
 
 // Declaration for common utility functions
 namespace utilities{
+	// global variable
+	extern std::map<std::string, geometry_msgs::Pose> anyTimePoseArray;
+	extern PointCloudRGB::Ptr pc_viz;
+
 	std::string type2str(int type);
 	void convert3dOrganized(cv::Mat &objDepth, Eigen::Matrix3f &camIntrinsic, PointCloud::Ptr objCloud);
 	void convert3dOrganizedRGB(cv::Mat &objDepth, cv::Mat &colImage, Eigen::Matrix3f &camIntrinsic, PointCloudRGB::Ptr objCloud);
@@ -89,6 +98,11 @@ namespace utilities{
 	void writePoseToFile(Eigen::Matrix4f pose, std::string objName, std::string scenePath, std::string filename);
 	void writeScoreToFile(float score, std::string objName, std::string scenePath, std::string filename);
 	void toTransformationMatrix(Eigen::Matrix4f& camPose, std::vector<double> camPose7D);
+	void performTrICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
+		Eigen::Isometry3d &currTransform,
+		Eigen::Isometry3d &finalTransform,
+		float trimPercentage);
 }
 
 #endif

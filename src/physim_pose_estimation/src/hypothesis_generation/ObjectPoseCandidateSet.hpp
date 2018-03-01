@@ -13,7 +13,7 @@ namespace pose_candidates{
 		void generate(std::string objName, std::string scenePath, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModelSampled, std::map<std::vector<int>, int> PPFMap, 
-				int max_count_ppf, Eigen::Matrix3f camIntrinsic);
+				int max_count_ppf, Eigen::Matrix4f camPose, Eigen::Matrix3f camIntrinsic/*, std::thread &th_id*/);
 		void cluster();
 
 		std::vector< std::pair <Eigen::Isometry3d, float> > hypothesisSet;

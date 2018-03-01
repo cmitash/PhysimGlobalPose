@@ -1,8 +1,16 @@
 #include <GlobalCfg.hpp>
 #include <SceneCfg.hpp>
+#include <PoseVisualization.hpp>
 
 // global config pointer
 GlobalCfg *pCfg;
+
+namespace utilities{
+  std::map<std::string, geometry_msgs::Pose> anyTimePoseArray;
+  PointCloudRGB::Ptr pc_viz;
+}
+
+int runVizThread = 1;
 
 // depth_sim package
 // void initScene (int argc, char **argv);
@@ -10,11 +18,102 @@ GlobalCfg *pCfg;
 // void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
 // void clearScene();
 
+void vizThread(scene_cfg::SceneCfg *currScene) {
+  pose_visualization::PoseVisualization *pViz = new pose_visualization::PoseVisualization();
+  pViz->loadSceneCloud(currScene->depthImage, currScene->colorImage, currScene->camIntrinsic, currScene->camPose);
+ 
+  ifstream pFile;
+  pFile.open ((currScene->scenePath + "result.txt").c_str());
+  for (int ii=0; ii<currScene->numObjects; ii++){
+    char objName[30];
+    std::vector<double> v(7,0);
+    pFile >> objName >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6];
+    pViz->loadObjectModels(currScene->pSceneObjects[ii]->pObject->objModel, v, std::string(objName));
+  }
+  pViz->setCamera();
+  pFile.close();
+  pViz->startViz();
+  delete pViz;
+}
+
+void publishMarkers(std::vector<visualization_msgs::Marker> &marker, std::vector<ros::Publisher> &marker_pub, ros::Publisher pub) {
+  while(runVizThread){
+    for (int ii=0; ii<pCfg->num_objects; ii++){
+      std::map<std::string, geometry_msgs::Pose>::iterator it = utilities::anyTimePoseArray.find(pCfg->gObjects[ii]->objName);
+      geometry_msgs::Pose msg = it->second;
+      marker[ii].pose.position.x = msg.position.x;
+      marker[ii].pose.position.y = msg.position.y;
+      marker[ii].pose.position.z = msg.position.z;
+      marker[ii].pose.orientation.x = msg.orientation.x;
+      marker[ii].pose.orientation.y = msg.orientation.y;
+      marker[ii].pose.orientation.z = msg.orientation.z;
+      marker[ii].pose.orientation.w = msg.orientation.w;
+      marker_pub[ii].publish(marker[ii]);
+    }
+
+    utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
+    pub.publish (utilities::pc_viz);
+  }
+}
+
+void initMarkers(visualization_msgs::Marker &marker, ros::Publisher &marker_pub, std::string objName, int objId) {
+  char markerId[30];
+  sprintf(markerId, "Object%04d", objId);
+
+  marker_pub = pCfg->nh.advertise<visualization_msgs::Marker>(markerId, 1);
+
+  // Set the frame ID and timestamp.  See the TF tutorials for information on these.
+  marker.header.frame_id = "/realsense_rgb_optical_frame";
+  marker.header.stamp = ros::Time::now();
+
+  // Set the namespace and id for this marker.  This serves to create a unique ID
+  // Any marker sent with the same namespace and id will overwrite the old one
+  marker.ns = "basic_shapes";
+  marker.id = 0;
+
+  // Set the marker type
+  marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+
+  // Set the marker action.  Options are ADD and DELETE
+  marker.action = visualization_msgs::Marker::ADD;
+  
+  // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+  marker.pose.position.x = 10;
+  marker.pose.position.y = 10;
+  marker.pose.position.z = 10;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+
+  // Set the scale of the marker -- 1x1x1 here means 1m on a side
+  marker.scale.x = 1.0;
+  marker.scale.y = 1.0;
+  marker.scale.z = 1.0;
+
+  marker.mesh_use_embedded_materials = true;
+
+  marker.lifetime = ros::Duration();
+  marker.mesh_resource = "package://turtlesim/" + objName + ".ply";
+}
+
 /********************************* function: estimatePose ***********************************************
 ********************************************************************************************************/
 
 bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
                   physim_pose_estimation::EstimateObjectPose::Response &res){
+
+  // refresh visualization
+  for(int ii=0; ii<pCfg->num_objects; ii++) {
+    std::map<std::string, geometry_msgs::Pose>::iterator it = utilities::anyTimePoseArray.find(pCfg->gObjects[ii]->objName);
+    it->second.position.x = 10;
+    it->second.position.y = 10;
+    it->second.position.z = 10;
+    it->second.orientation.x = 0;
+    it->second.orientation.y = 0;
+    it->second.orientation.z = 0;
+    it->second.orientation.w = 1;
+  }
 
   // Initialize the scene based on the type of dataset or camera input is chosen as default
   scene_cfg::SceneCfg *currScene;
@@ -33,7 +132,7 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
            <<"camera intrinsics: "<< std::endl << currScene->camIntrinsic << std::endl;
 
   currScene->removeTable();
-  currScene->getTableParams();
+  // currScene->getTableParams();
   currScene->perfromSegmentation(pCfg);
   currScene->generateHypothesis();
   currScene->performHypothesisSelection();
@@ -72,6 +171,9 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
     pFile.close();
   }
   
+  // std::thread viz_thread (vizThread, currScene);
+  // viz_thread.join();
+
   delete currScene;
 
   return true;
@@ -84,14 +186,42 @@ int main(int argc, char **argv){
   pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
   ros::init(argc, argv, "physim_node");
   pCfg = new GlobalCfg();
+  
   // initScene (0, NULL); // Initialize openGL for rendering
 
   pCfg->loadObjects();
 
+  // initializing markers
+  std::vector<ros::Publisher> marker_pubs(pCfg->num_objects); 
+  std::vector<visualization_msgs::Marker> markers(pCfg->num_objects);
+  for(int ii=0; ii<pCfg->num_objects; ii++) {
+    initMarkers(markers[ii], marker_pubs[ii], pCfg->gObjects[ii]->objName, ii);
+    geometry_msgs::Pose identity_pose;
+    identity_pose.position.x = 10;
+    identity_pose.position.y = 10;
+    identity_pose.position.z = 10;
+    identity_pose.orientation.x = 0;
+    identity_pose.orientation.y = 0;
+    identity_pose.orientation.z = 0;
+    identity_pose.orientation.w = 1;
+    utilities::anyTimePoseArray.insert(std::make_pair(pCfg->gObjects[ii]->objName, identity_pose));
+  }
+  ros::Publisher pub = pCfg->nh.advertise<PointCloudRGB> ("pointsViz", 1);
+  PointCloudRGB::Ptr DummySceneCloud(new PointCloudRGB);
+  DummySceneCloud->points.push_back (pcl::PointXYZRGB(1.0, 2.0, 3.0));
+  utilities::pc_viz = PointCloudRGB::Ptr(new PointCloudRGB);
+  utilities::pc_viz->resize(1);
+  copyPointCloud(*DummySceneCloud, *utilities::pc_viz);
+  utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
+
+  // std::thread marker_thread (publishMarkers, std::ref(markers), std::ref(marker_pubs), pub);
+
   ros::ServiceServer service = pCfg->nh.advertiseService("pose_estimation", estimatePose);
   ROS_INFO("Ready for pose estimation");
   ros::spin();
+  runVizThread = 0;
 
+  // marker_thread.join();
   return 0;
 }
 

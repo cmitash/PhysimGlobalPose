@@ -15,6 +15,8 @@ namespace pose_visualization{
 	    	viewer->spinOnce (100);
 	    	boost::this_thread::sleep (boost::posix_time::microseconds (100000));
   		}
+
+		viewer->close(); 
 	}
 
 	void PoseVisualization::loadSceneCloud(cv::Mat depthImage, cv::Mat colorImage, Eigen::Matrix3f camIntrinsic, Eigen::Matrix4f camPose){
@@ -36,5 +38,15 @@ namespace pose_visualization{
 		viewer->addPolygonMesh(*mesh_out, meshName);
 		viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_COLOR, (double)rand()/(double)RAND_MAX,(double)rand()/(double)RAND_MAX,(double)rand()/(double)RAND_MAX, meshName);
 		viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_OPACITY, 0.4, meshName);
+		viewer->resetCameraViewpoint("sample cloud");
+	}
+
+	void PoseVisualization::setCamera() {
+		viewer->setCameraPosition(-0.634251, 0.232444, 0.124079, 0.487722, 0.0377538, -0.0502087, 0.14127, -0.0698937, 0.987501); 
+		viewer->setCameraFieldOfView(49.1311*M_PI/180); 
+		viewer->setCameraClipDistances(0.399983, 2.39047); 
+		viewer->setPosition(1985, 24); 
+		viewer->setSize(1855, 1056);
+		viewer->updateCamera();
 	}
 }

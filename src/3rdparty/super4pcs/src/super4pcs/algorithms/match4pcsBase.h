@@ -60,6 +60,29 @@
 
 namespace Super4PCS{
 
+class BaseGraph{
+    public:
+        using Point3D = match_4pcs::Point3D;
+
+        int baseIds_[4];
+        float invariant1_;
+        float invariant2_;
+
+        float jointProbability;
+
+        std::vector<match_4pcs::Quadrilateral> congruent_quads;
+
+        BaseGraph(std::vector<int> baseIds, float invariant1, float invariant2, float baseProbability);
+        ~BaseGraph(){}
+}; // class BaseGraph
+
+class Compare{
+    public:
+        bool operator() (const BaseGraph* lhs, const BaseGraph* rhs){
+            return (lhs->jointProbability > rhs->jointProbability);
+        }
+}; // class Compare
+
 class Match4PCSBase {
 
 public:
@@ -71,7 +94,7 @@ public:
 
     static constexpr int kNumberOfDiameterTrials = 1000;
     static constexpr Scalar kLargeNumber = 1e9;
-    static constexpr Scalar distance_factor = 2.0;
+    static constexpr Scalar distance_factor = 1.0;
 
     // Read access to the sampled clouds used for the registration
     inline const std::vector<Point3D>& getFirstSampled() const {
@@ -98,16 +121,16 @@ public:
     ComputeTransformation(const std::vector<Point3D>& P,
                           std::vector<Point3D>* Q,
                           std::vector<Point3D>* Q_validation,
+                          std::vector<Point3D>* Q_hull,
                           Eigen::Isometry3d &bestPose,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
                           std::string probImagePath, std::map<std::vector<int>, int> PPFMap, int max_count_ppf,
-                          Eigen::Matrix3f camIntrinsic, std::string objName);
+                          Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath);
 
 protected:
     // Number of trials. Every trial picks random base from P.
-    int max_number_of_trials_;
-    // Minimum number of trials that the algorithm shall run
-    int min_number_of_trials_;
+    int max_number_of_bases_;
+    int max_number_of_verifications_;
     // Maximum base diameter. It is computed automatically from the diameter of
     // P and the estimated overlap and used to limit the distance between the
     // points in the base in P so that the probability to have all points in
@@ -125,35 +148,23 @@ protected:
     VectorType centroid_;
     // The transformation matrix by wich we transform Q to P
     Eigen::Matrix<Scalar, 4, 4> transform_;
-    // Quad centroids in first and second clouds
-    // They are used temporarily and makes the transformations more robust to
-    // noise. At the end, the direct transformation applied as a 4x4 matrix on
-    // every points in Q is computed and returned.
-    Eigen::Matrix<Scalar, 3, 1> qcentroid1_, qcentroid2_;
-    // The points in the base (indices to P). It is being updated in every
-    // RANSAC iteration.
-    int base_[4];
-    // The current congruent 4 points from Q. Every RANSAC iteration the
-    // algorithm examines a set of such congruent 4-points from Q and retains
-    // the best from them (the one that realizes the best LCP).
-    int current_congruent_[4];
+    std::vector<Eigen::Matrix<Scalar, 4, 4> > allTransforms;
     // Sampled P (3D coordinates).
     std::vector<Point3D> sampled_P_3D_;
     // Sampled Q (3D coordinates).
     std::vector<Point3D> sampled_Q_3D_;
     // Sampled Q (3D coordinates) for verification stage
     std::vector<Point3D> validation_Q_3D;
+    std::vector<Point3D> hull_Q_3D;
     // The 3D points of the base.
     std::vector<Point3D> base_3D_;
-    // The copy of the input Q. We transform Q to match P and returned the
-    // transformed version.
-    std::vector<Point3D> Q_copy_;
     // The centroid of P.
     VectorType centroid_P_;
     // The centroid of Q.
     VectorType centroid_Q_;
     // The best LCP (Largest Common Point) fraction so far.
     Scalar best_LCP_;
+    int best_lcp_index;
     // Current trial.
     int current_trial_;
     // KdTree used to compute the LCP
@@ -168,6 +179,13 @@ protected:
     int operMode;
     // start time of the algorithm
     clock_t start_time;
+
+    float base_selection_time;
+    float congruent_set_extraction;
+    float congruent_set_verification;
+    float clustering_time;
+    float total_time;
+
     // hashmap of point pair features to the count on model
     std::map<std::vector<int>, int> PPFMap; 
     // maximum count of any ppf on model
@@ -176,17 +194,8 @@ protected:
     int trans_disc;
     // rotational discretization for point pair features
     int rot_disc;
-
-#ifdef TEST_GLOBAL_TIMINGS
-
-    Scalar totalTime;
-    Scalar kdTreeTime;
-    Scalar verifyTime;
-
-    using Timer = Super4PCS::Utils::Timer;
-
-#endif
-
+    // set of all bases sampled from P
+    std::vector<Super4PCS::BaseGraph*> baseSet;
 protected:
 
     Match4PCSBase(const match_4pcs::Match4PCSOptions& options);
@@ -232,20 +241,18 @@ protected:
     // the translation vector and (cx,cy,cz) is the center of transformation.template <class MatrixDerived>
     Scalar Verify(const Eigen::Ref<const MatrixType> & mat);
     Scalar WeightedVerify(const Eigen::Ref<const MatrixType> &mat);
-
+    Scalar verifyRigidTransform(Eigen::Matrix<Scalar, 4, 4> transform);
+    
     // Performs n RANSAC iterations, each one of them containing base selection,
     // finding congruent sets and verification. Returns true if the process can be
     // terminated (the target LCP was obtained or the maximum number of trials has
     // been reached), false otherwise.
-    bool Perform_N_steps(int n,
-                         Eigen::Ref<MatrixType> transformation,
-                         std::vector<Point3D>* Q,
+    bool Perform_N_steps(std::vector<Point3D>* Q,
                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    bool IncrementalSearch(std::vector<Point3D>* Q, std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, 
+                        std::string scenePath, std::string objName);
 
-    // Tries one base and finds the best transformation for this base.
-    // Returns true if the achieved LCP is greater than terminate_threshold_,
-    // else otherwise.
-    bool TryOneBase(std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    bool ExtractCongruentSet(int baseNumber);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -257,6 +264,18 @@ protected:
     virtual void
     Initialize(const std::vector<Point3D>& P,
                const std::vector<Point3D>& Q) = 0;
+
+    void convertToCVMat(Eigen::Matrix4f &pose, cv::Mat &cvPose);
+    void performKMeansPose(int k_clusters, std::vector< std::pair <Eigen::Isometry3d, float> > &poses,
+                        std::vector<std::vector<int> > &clusteredPoses);
+    void performKMeansBase(int k_clusters, std::vector<Super4PCS::BaseGraph*> &baseSet,
+                        std::vector<std::vector<int> > &clusteredBases);
+    float c_dist(int index_1, int index_2);
+    float c_dist_mean(int index_1, int index_2);
+    float c_dist_pose(int index_1, int index_2);
+    void toEulerianAngle(Eigen::Quaternionf& q, Eigen::Vector3f& eulAngles);
+    void convert6DToMatrix(Eigen::Matrix4f &pose, cv::Mat &points, int index);
+    void toQuaternion(Eigen::Vector3f& eulAngles, Eigen::Quaternionf& q);
 
     // Public virtual methods.
     // Set as public for testing and debug purpose.
@@ -274,9 +293,13 @@ public:
     bool SelectQuadrilateral(Scalar &invariant1, Scalar &invariant2,
                              int& base1, int& base2, int& base3, int& base4);
 
-    bool SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invariant2,
+    bool SelectTetrahedronBase(Scalar& invariant1, Scalar& invariant2,
                                         int& base1, int& base2, int& base3,
                                         int& base4);
+
+    bool SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invariant2,
+                                        int& base1, int& base2, int& base3,
+                                        int& base4, float& baseProbability);
 
     const std::vector<Point3D>& base3D() const { return base_3D_; }
 
@@ -323,16 +346,22 @@ public:
                                 const PairsVector& Q_pairs,
                                 std::vector<match_4pcs::Quadrilateral>* quadrilaterals) const = 0;
 
-    // Loop over the set of congruent 4-points and test compatiliby with the
-    // input base.
-    // \param [out] Nb Number of quads corresponding to valid configurations
-    bool TryCongruentSet(int base_id1,
-                         int base_id2,
-                         int base_id3,
-                         int base_id4,
-                         const std::vector<match_4pcs::Quadrilateral> &congruent_quads,
-                         size_t &nbCongruent,
-                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    bool FindCongruentQuadrilateralsV4PCS(std::vector<std::pair<int, int>>& pairs1, 
+                                             std::vector<std::pair<int, int>>& pairs2,
+                                             std::vector<std::pair<int, int>>& pairs3,
+                                             std::vector<std::pair<int, int>>& pairs4,
+                                             std::vector<std::pair<int, int>>& pairs5,
+                                             std::vector<std::pair<int, int>>& pairs6,
+                                             float &distance1, float &distance2, float &distance3, 
+                                             float &distance4, float &distance5, float &distance6,
+                                             float &distance_threshold, std::vector<match_4pcs::Quadrilateral>* quadrilaterals);
+
+    bool ComputeRigidTransformFromCongruentPair(int base_id1,
+                          int base_id2,
+                          int base_id3,
+                          int base_id4,
+                          match_4pcs::Quadrilateral &congruent_quad,
+                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 private:
     void initKdTree();
 

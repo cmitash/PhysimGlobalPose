@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(physim_pose_estimation)
 
-# set(PCL_DIR /home/chaitanya/software/pcl-pcl-1.7.2/build)
+set(PCL_DIR /home/chaitanya/software/pcl-pcl-1.7.2/build)
 find_package (PCL REQUIRED COMPONENTS io common visualization features) 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(OpenCV REQUIRED)
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_BUILD_TYPE Debug)
 
 ## Generate messages in the 'msg' folder
@@ -89,6 +89,7 @@ add_executable(physim_pose_estimation ${RIGIDBODY_EXAMPLE_OBJS}
                           src/segmentation/Segmentation.cpp
                           src/hypothesis_generation/ObjectPoseCandidateSet.cpp
                           src/hypothesis_verification/HypothesisSelection.cpp
+                          src/visualization/PoseVisualization.cpp
                           )
 
 add_executable(physim_pose_visualization
