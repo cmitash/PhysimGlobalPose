@@ -287,8 +287,8 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     max_base_diameter_ = P_diameter_;  // * estimated_overlap_;
 
     // maximum number of trails
-    max_number_of_bases_ = 100;
-    max_number_of_verifications_ = 100;
+    max_number_of_bases_ = 500;
+    max_number_of_verifications_ = 500;
 
     base_selection_time = 0;
     congruent_set_extraction = 0;
@@ -714,7 +714,7 @@ bool Match4PCSBase::SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invaria
       Scalar planar_distance = std::abs(A * sampled_P_3D_[i].x() + B * sampled_P_3D_[i].y() +
         C * sampled_P_3D_[i].z() - 1.0);
 
-      if(planar_distance > 0.02 ||
+      if(planar_distance > 0.01 ||
         (sampled_P_3D_[i].pos()- sampled_P_3D_[base1].pos()).norm() < 0.01 || 
         (sampled_P_3D_[i].pos()- sampled_P_3D_[base2].pos()).norm() < 0.01 || 
         (sampled_P_3D_[i].pos()- sampled_P_3D_[base3].pos()).norm() < 0.01 ) {
@@ -1096,6 +1096,26 @@ float Match4PCSBase::c_dist_pose(int index_1, int index_2) {
   return max_distance;
 }
 
+float Match4PCSBase::c_dist_pose_mean(int index_1, int index_2) {
+  size_t number_of_points = hull_Q_3D.size();
+
+  float mean_distance = 0;
+  for(int ii=0; ii<number_of_points; ii++){
+    float min_distance = FLT_MAX;
+
+    Eigen::Matrix<Scalar, 3, 1> p = (allTransforms[index_1]*hull_Q_3D[ii].pos().homogeneous()).head<3>();
+    for(int jj=0; jj<number_of_points; jj++){
+      Eigen::Matrix<Scalar, 3, 1> q = (allTransforms[index_2]*hull_Q_3D[jj].pos().homogeneous()).head<3>();
+      float dist = (p - q).norm();
+      if(dist < min_distance)
+        min_distance = dist;
+    }
+    mean_distance += min_distance;
+  }
+
+  return mean_distance;
+}
+
 float Match4PCSBase::c_dist(int index_1, int index_2) {
   float max_distance = 0;
 
@@ -1222,7 +1242,7 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
   hull_Q_3D = *Q_hull;
   init(P, *Q, *Q_validation, probImagePath, camIntrinsic, objName, PPFMap, max_count_ppf);
 
-  Perform_N_steps(Q, allPose);
+  Perform_N_steps(Q, allPose, scenePath, objName);
   // IncrementalSearch(Q, allPose, scenePath, objName);
 
   if(best_lcp_index != -1)
@@ -1298,15 +1318,16 @@ bool Match4PCSBase::IncrementalSearch(std::vector<Point3D>* Q, std::vector< std:
 
 // Performs N RANSAC iterations and compute the best transformation.
 bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
-                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose) {
+                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, 
+                                    std::string scenePath, std::string objName) {
   if (Q == nullptr)
     return false;
 
   // Step 1: Base Selection
   clock_t base_selection_start = clock();
-  int sample_pool_size = 1000;
+  int sample_base_pool_size = 1000;
 
-  while(baseSet.size() < sample_pool_size) {
+  while(baseSet.size() < sample_base_pool_size) {
     Scalar invariant1, invariant2;
     std::vector<int> baseIdx(4,0);
     float baseProbability;
@@ -1325,21 +1346,21 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
     }
   }
   
-  std::cout << "Base set size: " << baseSet.size() << std::endl;
+  std::cout << "Base set pool size: " << baseSet.size() << std::endl;
 
   // Step 2: Subsample the bases
-  std::unordered_set<int> sampled_bases;
-  sampled_bases.clear();
-
+  
   // Method 1:pick all bases
   // for (int ii = 0; ii < sample_pool_size; ii++) {
   //   sampled_bases.insert(ii);
   // }
 
   // Method 2: pick random bases
-  // while(sampled_bases.size() < max_number_of_bases_){
-  //   sampled_bases.insert(rand() % sample_pool_size);
-  // }
+  std::unordered_set<int> sampled_bases;
+  sampled_bases.clear();
+  while(sampled_bases.size() < max_number_of_bases_){
+    sampled_bases.insert(rand() % sample_base_pool_size);
+  }
 
   // sort based on joint probability and take top bases
   // std::sort(baseSet.begin(), baseSet.end(), Compare());
@@ -1349,37 +1370,38 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   // }
 
   // Method 4: Greedy dispersion: maximize the minimum distance to already sampled bases
-  sampled_bases.insert(0);
-  for (int ii=0; ii<max_number_of_bases_; ii++) {
-    float distance_to_farthest_sample = 0;
-    int next_sample_index = -1;
+  // std::vector<int> sampled_bases;
+  // sampled_bases.push_back(0);
+  // std::vector<float> distance_to_closest_sampled_base(sample_base_pool_size, FLT_MAX);
 
-    for (int jj=0; jj<sample_pool_size; jj++) {
-      float min_distance_to_any_base = FLT_MAX;
+  // for (int ii=0; ii<max_number_of_bases_; ii++) {
+  //   float max_distance_to_closest_sample = 0;
+  //   int next_sample_index = -1;
 
-      auto sampeld_base_it = sampled_bases.begin();
-      while(sampeld_base_it != sampled_bases.end()) {
-        float dist = c_dist_mean(jj, *sampeld_base_it);
-        if(dist < min_distance_to_any_base) {
-          min_distance_to_any_base = dist;
-        }
-        sampeld_base_it++;
-      }
+  //   for (int jj=0; jj<sample_base_pool_size; jj++) {
+  //     float dist = c_dist_mean(jj, sampled_bases[ii]);
 
-      if(min_distance_to_any_base > distance_to_farthest_sample) {
-        next_sample_index = jj;
-        distance_to_farthest_sample = min_distance_to_any_base;
-      }
-    }
-    sampled_bases.insert(next_sample_index);
-  }
+  //     if(dist < distance_to_closest_sampled_base[jj])
+  //       distance_to_closest_sampled_base[jj] = dist;
+
+  //     if(distance_to_closest_sampled_base[jj] > max_distance_to_closest_sample) {
+  //       next_sample_index = jj;
+  //       max_distance_to_closest_sample = distance_to_closest_sampled_base[jj];
+  //     }
+  //   }
+
+  //   if(next_sample_index != -1)
+  //     sampled_bases.push_back(next_sample_index);
+  //   else
+  //     break;
+  // }
 
   base_selection_time = float( clock () - base_selection_start ) /  CLOCKS_PER_SEC;
-  std::cout << "Number of bases sampled: " << sampled_bases.size() << std::endl;
 
   // Step 3: Congruent Set Extraction
   clock_t cse_start = clock();
   auto base_it = sampled_bases.begin();
+  int bases_used = 0;
   while (base_it != sampled_bases.end()) {
     ExtractCongruentSet(*base_it);
     
@@ -1387,66 +1409,84 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
       ComputeRigidTransformFromCongruentPair(baseSet[*base_it]->baseIds_[0], baseSet[*base_it]->baseIds_[1],
                                               baseSet[*base_it]->baseIds_[2], baseSet[*base_it]->baseIds_[3],
                                               baseSet[*base_it]->congruent_quads[jj], allPose);
+
+    ofstream pFile;
+    pFile.open (scenePath + "debug_super4PCS/" + objName + "_bases.txt", std::ofstream::out | std::ofstream::app);
+    pFile << corr_pixels[baseSet[*base_it]->baseIds_[0]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[0]].second << " "
+          << corr_pixels[baseSet[*base_it]->baseIds_[1]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[1]].second << " "
+          << corr_pixels[baseSet[*base_it]->baseIds_[2]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[2]].second << " "
+          << corr_pixels[baseSet[*base_it]->baseIds_[3]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[3]].second << " " 
+          << baseSet[*base_it]->congruent_quads.size() << std::endl;
+    pFile.close(); 
+
     base_it++;
+    bases_used++;
+
+    // Stop if too many Congruent sets
+    if(allPose.size() > 20000)
+      break;
   }
   congruent_set_extraction = float( clock () - cse_start ) /  CLOCKS_PER_SEC;
+  
+  std::cout << "Sampled base size: " << sampled_bases.size() << std::endl;
+  std::cout << "Number of bases used: " << bases_used << std::endl;
   std::cout << "Number of poses: " << allPose.size() << std::endl;
 
   // Step 4: Subsample the transforms
-  std::unordered_set<int> sampled_indices;
-  sampled_indices.clear();
-
   clock_t verification_start = clock ();
-
-  int max_size_of_pool = 5000;
-  max_size_of_pool = (allPose.size() < max_size_of_pool)?allPose.size():max_size_of_pool;
-
-  std::vector<std::vector<float> > pose_distances(max_size_of_pool, std::vector<float>(max_size_of_pool, -1));
+  
+  int max_size_of_pool = allPose.size();
 
   // greedy dispersion on poses
-  if(allPose.size() > max_number_of_verifications_) {
-    sampled_indices.insert(0);
-    for (int ii=0; ii<max_number_of_verifications_; ii++) {
-      float distance_to_farthest_sample = 0;
-      int next_sample_index = -1;
+  // std::vector<int> sampled_indices;
+  // sampled_indices.clear();
+  // if(allPose.size() > max_number_of_verifications_) {
+  //   std::vector<float> distance_to_closest_sample(max_size_of_pool, FLT_MAX);
+  //   sampled_indices.push_back(0);
 
-      for (int jj=0; jj<max_size_of_pool; jj++) {
-        float min_distance_to_any_pose = FLT_MAX;
+  //   for (int ii=0; ii<max_number_of_verifications_; ii++) {
+  //     float max_distance_to_closest_sample = 0;
+  //     int next_sample_index = -1;
 
-        auto sampled_pose_it = sampled_indices.begin();
-        while(sampled_pose_it != sampled_indices.end()) {
-          float dist;
-          
-          if(pose_distances[jj][*sampled_pose_it] != -1)
-            dist = pose_distances[jj][*sampled_pose_it];
-          else {
-            dist = c_dist_pose(jj, *sampled_pose_it);
-            pose_distances[jj][*sampled_pose_it] = dist;
-            pose_distances[*sampled_pose_it][jj] = dist;
-          }
+  //     for (int jj=0; jj<max_size_of_pool; jj++) {
+  //       float dist = c_dist_pose_mean(jj, sampled_indices[ii]);
+  //       if(dist < distance_to_closest_sample[jj])
+  //         distance_to_closest_sample[jj] = dist;
 
-          if(dist < min_distance_to_any_pose)
-            min_distance_to_any_pose = dist;
-          sampled_pose_it++;
-        }
+  //       if(distance_to_closest_sample[jj] > max_distance_to_closest_sample) {
+  //         max_distance_to_closest_sample = distance_to_closest_sample[jj];
+  //         next_sample_index = jj;
+  //       }
+  //     }
 
-        if(min_distance_to_any_pose > distance_to_farthest_sample) {
-          next_sample_index = jj;
-          distance_to_farthest_sample = min_distance_to_any_pose;
-        }
-      }
-      sampled_indices.insert(next_sample_index);
-      std::cout << "sample: " << ii+1 << ", index: " << next_sample_index << std::endl;
-    }
-  }
-  else {
-    for(int ii=0; ii<allPose.size(); ii++)
-      sampled_indices.insert(ii);
-  }
+  //     if(next_sample_index != -1)
+  //       sampled_indices.push_back(next_sample_index);
+  //     else
+  //       break;
+  //   }
+  // }
+  // else {
+  //   for(int ii=0; ii<allPose.size(); ii++)
+  //     sampled_indices.push_back(ii);
+  // }
 
   // test all poses
-  // for(int ii=0; ii<allPose.size(); ii++)
-  //   sampled_indices.insert(ii);
+  std::unordered_set<int> sampled_indices;
+  sampled_indices.clear();
+  for(int ii=0; ii<allPose.size(); ii++)
+     sampled_indices.insert(ii);
+
+  // test random poses
+  // std::unordered_set<int> sampled_indices;
+  // sampled_indices.clear();
+  // if(allPose.size() > max_number_of_verifications_) {
+  //   while(sampled_indices.size() < max_number_of_verifications_)
+  //     sampled_indices.insert(rand() % max_size_of_pool);
+  // }
+  // else {
+  //   for(int ii=0; ii<allPose.size(); ii++)
+  //     sampled_indices.insert(ii);
+  // }
 
   std::cout << "Number of sampled poses: " << sampled_indices.size() << std::endl;
 
@@ -1467,8 +1507,9 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   ofstream pFile;
   pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
   pFile << total_time << " " << base_selection_time << " "
-        << congruent_set_extraction << " " << congruent_set_verification 
-        << " " << allPose.size() << " " << sampled_bases.size() << std::endl;
+        << congruent_set_extraction << " " << congruent_set_verification << " " <<
+        clustering_time
+        << " " << allPose.size() << " " << bases_used << std::endl;
   pFile.close();
 
   return true;
@@ -1508,11 +1549,15 @@ bool Match4PCSBase::ExtractCongruentSet(int baseNumber) {
   computePPF(base_id1, base_id2, ppf_1);
   computePPF(base_id3, base_id4, ppf_6);
 
+  clock_t expract_pair_start = clock();
+
   ExtractPairs(distance1, normal_angle1, distance_factor * options_.delta, 0,
                   1, &pairs1, ppf_1);
   
   ExtractPairs(distance6, normal_angle6, distance_factor * options_.delta, 2,
                   3, &pairs6, ppf_6);
+
+  clustering_time += float( clock () - expract_pair_start ) /  CLOCKS_PER_SEC;
 
   if (operMode == 0 || operMode == 1){
     // std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"

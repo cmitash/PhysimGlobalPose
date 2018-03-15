@@ -18,24 +18,6 @@ int runVizThread = 1;
 // void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
 // void clearScene();
 
-void vizThread(scene_cfg::SceneCfg *currScene) {
-  pose_visualization::PoseVisualization *pViz = new pose_visualization::PoseVisualization();
-  pViz->loadSceneCloud(currScene->depthImage, currScene->colorImage, currScene->camIntrinsic, currScene->camPose);
- 
-  ifstream pFile;
-  pFile.open ((currScene->scenePath + "result.txt").c_str());
-  for (int ii=0; ii<currScene->numObjects; ii++){
-    char objName[30];
-    std::vector<double> v(7,0);
-    pFile >> objName >> v[0] >> v[1] >> v[2] >> v[3] >> v[4] >> v[5] >> v[6];
-    pViz->loadObjectModels(currScene->pSceneObjects[ii]->pObject->objModel, v, std::string(objName));
-  }
-  pViz->setCamera();
-  pFile.close();
-  pViz->startViz();
-  delete pViz;
-}
-
 void publishMarkers(std::vector<visualization_msgs::Marker> &marker, std::vector<ros::Publisher> &marker_pub, ros::Publisher pub) {
   while(runVizThread){
     for (int ii=0; ii<pCfg->num_objects; ii++){
@@ -60,6 +42,7 @@ void initMarkers(visualization_msgs::Marker &marker, ros::Publisher &marker_pub,
   char markerId[30];
   sprintf(markerId, "Object%04d", objId);
 
+  // marker_pub = pCfg->nh.advertise<visualization_msgs::Marker>(objName.c_str(), 1);
   marker_pub = pCfg->nh.advertise<visualization_msgs::Marker>(markerId, 1);
 
   // Set the frame ID and timestamp.  See the TF tutorials for information on these.
@@ -136,6 +119,8 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
   currScene->perfromSegmentation(pCfg);
   currScene->generateHypothesis();
   currScene->performHypothesisSelection();
+  
+  copyPointCloud(*currScene->sceneCloud, *utilities::pc_viz);
 
   // iterate over scene objects
   for(int ii=0; ii<currScene->numObjects; ii++){
@@ -170,9 +155,6 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
       << " " << msg.orientation.w << " " << msg.orientation.x << " " << msg.orientation.y << " " << msg.orientation.z << std::endl;
     pFile.close();
   }
-  
-  // std::thread viz_thread (vizThread, currScene);
-  // viz_thread.join();
 
   delete currScene;
 
@@ -214,7 +196,7 @@ int main(int argc, char **argv){
   copyPointCloud(*DummySceneCloud, *utilities::pc_viz);
   utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
 
-  // std::thread marker_thread (publishMarkers, std::ref(markers), std::ref(marker_pubs), pub);
+  std::thread marker_thread (publishMarkers, std::ref(markers), std::ref(marker_pubs), pub);
 
   ros::ServiceServer service = pCfg->nh.advertiseService("pose_estimation", estimatePose);
   ROS_INFO("Ready for pose estimation");

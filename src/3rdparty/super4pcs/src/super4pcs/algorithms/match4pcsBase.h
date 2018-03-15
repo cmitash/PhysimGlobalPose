@@ -248,7 +248,8 @@ protected:
     // terminated (the target LCP was obtained or the maximum number of trials has
     // been reached), false otherwise.
     bool Perform_N_steps(std::vector<Point3D>* Q,
-                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+                         std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
+                         std::string scenePath, std::string objName);
     bool IncrementalSearch(std::vector<Point3D>* Q, std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, 
                         std::string scenePath, std::string objName);
 
@@ -268,6 +269,7 @@ protected:
     float c_dist(int index_1, int index_2);
     float c_dist_mean(int index_1, int index_2);
     float c_dist_pose(int index_1, int index_2);
+    float c_dist_pose_mean(int index_1, int index_2);
 
     // Public virtual methods.
     // Set as public for testing and debug purpose.

@@ -67,7 +67,7 @@ namespace pose_candidates{
 		// th_id = std::thread(getProbableTransformsSuper4PCS, input1, input2, input3, std::ref(bestHypothesis), std::ref(hypothesisSet), probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName);
 		getProbableTransformsSuper4PCS(input1, input2, input3, bestHypothesis, hypothesisSet, probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName, scenePath);
 		
-		// std::cout << bestHypothesis.first.matrix() << std::endl;
+		std::cout << bestHypothesis.first.matrix() << std::endl;
 		
 	}
 

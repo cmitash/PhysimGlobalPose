@@ -104,11 +104,8 @@ add_executable(physim_pose_visualization
                           src/visualization/PoseVisualization.cpp
                           )
 
-add_executable(physim_pose_featureGen src/main_genModelFeatures.cpp)
-                          
 add_dependencies(physim_pose_estimation ${catkin_EXPORTED_TARGETS})
 add_dependencies(physim_pose_visualization ${catkin_EXPORTED_TARGETS})
-add_dependencies(physim_pose_featureGen ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(physim_pose_estimation
@@ -119,13 +116,6 @@ target_link_libraries(physim_pose_estimation
 )
 
 target_link_libraries(physim_pose_visualization
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${PCL_LIBRARIES}
-  ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
-)
-
-target_link_libraries(physim_pose_featureGen
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}

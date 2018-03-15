@@ -168,6 +168,7 @@ if __name__ == '__main__':
     model_name = 'FCN_Vgg16_32s'
     image_size = (640, 640)
 
+    # weight_file = 'ycb_weights_synthetic.hdf5'
     weight_file = 'ycb_weights.hdf5'
     # weight_file = 'apc_weights.hdf5'
 
