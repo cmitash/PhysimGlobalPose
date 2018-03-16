@@ -31,14 +31,19 @@ namespace objects{
 	void Objects::readPPFMap(std::string env_p, std::string objName){
 		ifstream ppfFile;
 		std::vector<int> ppf_feature(4);
-		int feature_count, max_count;
+		std::vector<std::pair<int,int> > index_pairs;
+		int index1, index2;
+		int pair_count;
 
 		ppfFile.open ((env_p + "/models/" + objName + "/PPFMap.txt").c_str(), std::ofstream::in);
 
-		int count =0;
-		while(ppfFile >> ppf_feature[0] >> ppf_feature[1] >> ppf_feature[2] >> ppf_feature[3] >> feature_count >> max_count){
-			PPFMap.insert (std::pair<std::vector<int>, int>(ppf_feature, feature_count));
-			max_count_ppf = max_count;
+		while(ppfFile >> ppf_feature[0] >> ppf_feature[1] >> ppf_feature[2] >> ppf_feature[3] >> pair_count){
+			index_pairs.clear();
+			for(int ii=0; ii<pair_count; ii++){
+				ppfFile >> index1 >> index2;
+				index_pairs.push_back(std::make_pair(index1, index2));
+			}
+			PPFMap.insert (std::pair<std::vector<int>, std::vector<std::pair<int,int> > >(ppf_feature, index_pairs));
 		}
 		std::cout << "PPFMap size is: " << PPFMap.size() << std::endl;
 	}

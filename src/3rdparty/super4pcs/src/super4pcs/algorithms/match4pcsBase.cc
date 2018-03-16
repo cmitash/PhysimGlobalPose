@@ -219,7 +219,7 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
                          std::string probImagePath,
                          Eigen::Matrix3f camIntrinsic,
                          std::string objName,
-                         std::map<std::vector<int>, int> PPFMap, 
+                         std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, 
                          int max_count_ppf){
 
     start_time = clock();
@@ -245,6 +245,12 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     }
 
     centroid_P_ /= Scalar(sampled_P_3D_.size());
+
+    // for (int i = 0; i < sampled_Q_3D_.size(); ++i) {
+    //     std::cout << sampled_Q_3D_[i].x() << " " << 
+    //     sampled_Q_3D_[i].y() << " " <<
+    //     sampled_Q_3D_[i].z() << std::endl;
+    // }
 
     for (int i = 0; i < sampled_Q_3D_.size(); ++i) {
         centroid_Q_ += sampled_Q_3D_[i].pos();
@@ -288,7 +294,7 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
 
     // maximum number of trails
     max_number_of_bases_ = 500;
-    max_number_of_verifications_ = 500;
+    max_number_of_verifications_ = 100;
 
     base_selection_time = 0;
     congruent_set_extraction = 0;
@@ -300,8 +306,8 @@ void Match4PCSBase::init(const std::vector<Point3D>& P,
     operMode = 1;
 
     // translation and rotation discretization for point pair features
-    trans_disc = 10;
-    rot_disc = 15;
+    trans_disc = 5;
+    rot_disc = 10;
 
     baseSet.clear();
     allTransforms.clear();
@@ -606,7 +612,7 @@ bool Match4PCSBase::SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invaria
     // computing edge factor
     ppf_.clear();
     computePPF(base1, i, ppf_);
-    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    auto it = PPFMap.find(ppf_);
     float edge_i_0 = (it == PPFMap.end()) ? 0:1;
 
     curr_probabilities_[i] = orig_probabilities_[i]*
@@ -652,7 +658,7 @@ bool Match4PCSBase::SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invaria
     ppf_.clear();
     computePPF(base2, i, ppf_);
 
-    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    auto it = PPFMap.find(ppf_);
     float edge_i_1 = (it == PPFMap.end()) ? 0:1;
 
     curr_probabilities_[i] = curr_probabilities_[i]*
@@ -726,7 +732,7 @@ bool Match4PCSBase::SelectQuadrilateralStoCS(Scalar& invariant1, Scalar& invaria
     // computing edge factor
     ppf_.clear();
     computePPF(base3, i, ppf_);
-    std::map<std::vector<int>, int>::iterator it = PPFMap.find(ppf_);
+    auto it = PPFMap.find(ppf_);
     float edge_i_2 = (it == PPFMap.end()) ? 0:1;
 
     curr_probabilities_[i] =  curr_probabilities_[i]*
@@ -897,30 +903,28 @@ bool Match4PCSBase::ComputeRigidTransformFromCongruentPair(
                              options_.max_angle * pi / 180.0, // maximum per-dimension angle, check return value to detect invalid cases
                              transform,          // output: transformation
                              rms,                // output: rms error of the transformation between the basis and the congruent quad
-                         #ifdef MULTISCALE
-                             true
-                         #else
                              false
-                         #endif
                              );             // state: compute scale ratio ?
 
-  allTransforms.push_back(transform);
+  if(ok) {
+    allTransforms.push_back(transform);
 
-  Eigen::Matrix<float, 4, 4> transformation;
-  transformation = transform;
-  // The transformation has been computed between the two point clouds centered
-  // at the origin, we need to recompute the translation to apply it to the original clouds
-  {
-      Eigen::Matrix<Scalar, 3,1> centroid_P,centroid_Q;
-      centroid_P = centroid_P_;
-      centroid_Q = centroid_Q_;
+    Eigen::Matrix<float, 4, 4> transformation;
+    transformation = transform;
+    // The transformation has been computed between the two point clouds centered
+    // at the origin, we need to recompute the translation to apply it to the original clouds
+    {
+        Eigen::Matrix<Scalar, 3,1> centroid_P,centroid_Q;
+        centroid_P = centroid_P_;
+        centroid_Q = centroid_Q_;
 
-      Eigen::Matrix<Scalar, 3, 3> rot, scale;
-      Eigen::Transform<Scalar, 3, Eigen::Affine> (transformation).computeRotationScaling(&rot, &scale);
-      transformation.col(3) = (centroid1 + centroid_P - ( rot * scale * (centroid2 + centroid_Q))).homogeneous();
+        Eigen::Matrix<Scalar, 3, 3> rot, scale;
+        Eigen::Transform<Scalar, 3, Eigen::Affine> (transformation).computeRotationScaling(&rot, &scale);
+        transformation.col(3) = (centroid1 + centroid_P - ( rot * scale * (centroid2 + centroid_Q))).homogeneous();
+    }
+
+    allPose.push_back(std::make_pair(convertToIsometry3d(transformation), lcp));
   }
-
-  allPose.push_back(std::make_pair(convertToIsometry3d(transformation), lcp));
 
   return true;
 }
@@ -966,29 +970,6 @@ bool Match4PCSBase::ComputeRigidTransformation(const std::array< std::pair<Point
         VectorType  q2 = pairs[2].second.pos();
 
   Scalar scaleEst (1.);
-
-  // Compute scale factor if needed
-  if (computeScale){
-      const VectorType& p3 = pairs[3].first.pos();
-      const VectorType& q3 = pairs[3].second.pos();
-
-      const Scalar ratio1 = (p1 - p0).norm() / (q1 - q0).norm();
-      const Scalar ratio2 = (p3 - p2).norm() / (q3 - q2).norm();
-
-      const Scalar ratioDev  = std::abs(ratio1/ratio2 - Scalar(1.));  // deviation between the two
-      const Scalar ratioMean = (ratio1+ratio2)/Scalar(2.);            // mean of the two
-
-      if ( ratioDev > Scalar(0.1) )
-          return kLargeNumber;
-
-      scaleEst = ratioMean;
-
-      // apply scale factor to q
-      q0 = q0*scaleEst;
-      q1 = q1*scaleEst;
-      q2 = q2*scaleEst;
-      centroid2 *= scaleEst;
-  }
 
   VectorType vector_p1 = p1 - p0;
   if (vector_p1.squaredNorm() == 0) return kLargeNumber;
@@ -1234,7 +1215,7 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
                                      std::vector<Point3D>* Q_hull,
                                      Eigen::Isometry3d &bestPose, 
                                      std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                                     std::string probImagePath, std::map<std::vector<int>, int> PPFMap, int max_count_ppf, 
+                                     std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf, 
                                      Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath) {
 
   if (Q == nullptr) return kLargeNumber;
@@ -1245,10 +1226,10 @@ Match4PCSBase::ComputeTransformation(const std::vector<Point3D>& P,
   Perform_N_steps(Q, allPose, scenePath, objName);
   // IncrementalSearch(Q, allPose, scenePath, objName);
 
-  if(best_lcp_index != -1)
-    bestPose = allPose[best_lcp_index].first;
-  else
-    bestPose.matrix().setIdentity();
+  // if(best_lcp_index != -1)
+  //   bestPose = allPose[best_lcp_index].first;
+  // else
+  bestPose.matrix().setIdentity();
 
   // ofstream pFile1;
   // pFile1.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/pixels.txt", std::ofstream::out | std::ofstream::app);
@@ -1325,7 +1306,7 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
 
   // Step 1: Base Selection
   clock_t base_selection_start = clock();
-  int sample_base_pool_size = 1000;
+  int sample_base_pool_size = 500;
 
   while(baseSet.size() < sample_base_pool_size) {
     Scalar invariant1, invariant2;
@@ -1351,16 +1332,18 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   // Step 2: Subsample the bases
   
   // Method 1:pick all bases
-  // for (int ii = 0; ii < sample_pool_size; ii++) {
-  //   sampled_bases.insert(ii);
-  // }
-
-  // Method 2: pick random bases
   std::unordered_set<int> sampled_bases;
   sampled_bases.clear();
-  while(sampled_bases.size() < max_number_of_bases_){
-    sampled_bases.insert(rand() % sample_base_pool_size);
+  for (int ii = 0; ii < baseSet.size(); ii++) {
+    sampled_bases.insert(ii);
   }
+
+  // Method 2: pick random bases
+  // std::unordered_set<int> sampled_bases;
+  // sampled_bases.clear();
+  // while(sampled_bases.size() < max_number_of_bases_){
+  //   sampled_bases.insert(rand() % sample_base_pool_size);
+  // }
 
   // sort based on joint probability and take top bases
   // std::sort(baseSet.begin(), baseSet.end(), Compare());
@@ -1410,14 +1393,14 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
                                               baseSet[*base_it]->baseIds_[2], baseSet[*base_it]->baseIds_[3],
                                               baseSet[*base_it]->congruent_quads[jj], allPose);
 
-    ofstream pFile;
-    pFile.open (scenePath + "debug_super4PCS/" + objName + "_bases.txt", std::ofstream::out | std::ofstream::app);
-    pFile << corr_pixels[baseSet[*base_it]->baseIds_[0]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[0]].second << " "
-          << corr_pixels[baseSet[*base_it]->baseIds_[1]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[1]].second << " "
-          << corr_pixels[baseSet[*base_it]->baseIds_[2]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[2]].second << " "
-          << corr_pixels[baseSet[*base_it]->baseIds_[3]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[3]].second << " " 
-          << baseSet[*base_it]->congruent_quads.size() << std::endl;
-    pFile.close(); 
+    // ofstream pFile;
+    // pFile.open (scenePath + "debug_super4PCS/" + objName + "_bases.txt", std::ofstream::out | std::ofstream::app);
+    // pFile << corr_pixels[baseSet[*base_it]->baseIds_[0]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[0]].second << " "
+    //       << corr_pixels[baseSet[*base_it]->baseIds_[1]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[1]].second << " "
+    //       << corr_pixels[baseSet[*base_it]->baseIds_[2]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[2]].second << " "
+    //       << corr_pixels[baseSet[*base_it]->baseIds_[3]].first << " " << corr_pixels[baseSet[*base_it]->baseIds_[3]].second << " " 
+    //       << baseSet[*base_it]->congruent_quads.size() << std::endl;
+    // pFile.close(); 
 
     base_it++;
     bases_used++;
@@ -1438,43 +1421,43 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   int max_size_of_pool = allPose.size();
 
   // greedy dispersion on poses
-  // std::vector<int> sampled_indices;
-  // sampled_indices.clear();
-  // if(allPose.size() > max_number_of_verifications_) {
-  //   std::vector<float> distance_to_closest_sample(max_size_of_pool, FLT_MAX);
-  //   sampled_indices.push_back(0);
+  std::vector<int> sampled_indices;
+  sampled_indices.clear();
+  if(allPose.size() > max_number_of_verifications_) {
+    std::vector<float> distance_to_closest_sample(max_size_of_pool, FLT_MAX);
+    sampled_indices.push_back(0);
 
-  //   for (int ii=0; ii<max_number_of_verifications_; ii++) {
-  //     float max_distance_to_closest_sample = 0;
-  //     int next_sample_index = -1;
+    for (int ii=0; ii<max_number_of_verifications_; ii++) {
+      float max_distance_to_closest_sample = 0;
+      int next_sample_index = -1;
 
-  //     for (int jj=0; jj<max_size_of_pool; jj++) {
-  //       float dist = c_dist_pose_mean(jj, sampled_indices[ii]);
-  //       if(dist < distance_to_closest_sample[jj])
-  //         distance_to_closest_sample[jj] = dist;
+      for (int jj=0; jj<max_size_of_pool; jj++) {
+        float dist = c_dist_pose_mean(jj, sampled_indices[ii]);
+        if(dist < distance_to_closest_sample[jj])
+          distance_to_closest_sample[jj] = dist;
 
-  //       if(distance_to_closest_sample[jj] > max_distance_to_closest_sample) {
-  //         max_distance_to_closest_sample = distance_to_closest_sample[jj];
-  //         next_sample_index = jj;
-  //       }
-  //     }
+        if(distance_to_closest_sample[jj] > max_distance_to_closest_sample) {
+          max_distance_to_closest_sample = distance_to_closest_sample[jj];
+          next_sample_index = jj;
+        }
+      }
 
-  //     if(next_sample_index != -1)
-  //       sampled_indices.push_back(next_sample_index);
-  //     else
-  //       break;
-  //   }
-  // }
-  // else {
-  //   for(int ii=0; ii<allPose.size(); ii++)
-  //     sampled_indices.push_back(ii);
-  // }
+      if(next_sample_index != -1)
+        sampled_indices.push_back(next_sample_index);
+      else
+        break;
+    }
+  }
+  else {
+    for(int ii=0; ii<allPose.size(); ii++)
+      sampled_indices.push_back(ii);
+  }
 
   // test all poses
-  std::unordered_set<int> sampled_indices;
-  sampled_indices.clear();
-  for(int ii=0; ii<allPose.size(); ii++)
-     sampled_indices.insert(ii);
+  // std::unordered_set<int> sampled_indices;
+  // sampled_indices.clear();
+  // for(int ii=0; ii<allPose.size(); ii++)
+  //    sampled_indices.insert(ii);
 
   // test random poses
   // std::unordered_set<int> sampled_indices;
@@ -1503,6 +1486,15 @@ bool Match4PCSBase::Perform_N_steps(std::vector<Point3D>* Q,
   congruent_set_verification = float( clock () - verification_start ) /  CLOCKS_PER_SEC;
 
   total_time = float( clock () - start_time ) /  CLOCKS_PER_SEC;
+
+  std::vector< std::pair <Eigen::Isometry3d, float> > sampledPoses;
+  for(auto it: sampled_indices)
+    sampledPoses.push_back(allPose[it]);
+  sampledPoses.push_back(allPose[best_lcp_index]);
+
+  allPose.clear();
+  for(auto it:sampledPoses)
+     allPose.push_back(it);
 
   ofstream pFile;
   pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
@@ -1551,18 +1543,29 @@ bool Match4PCSBase::ExtractCongruentSet(int baseNumber) {
 
   clock_t expract_pair_start = clock();
 
-  ExtractPairs(distance1, normal_angle1, distance_factor * options_.delta, 0,
-                  1, &pairs1, ppf_1);
+  // ExtractPairs(distance1, normal_angle1, distance_factor * options_.delta, 0,
+  //                 1, &pairs1, ppf_1);
   
-  ExtractPairs(distance6, normal_angle6, distance_factor * options_.delta, 2,
-                  3, &pairs6, ppf_6);
+  // ExtractPairs(distance6, normal_angle6, distance_factor * options_.delta, 2,
+  //                 3, &pairs6, ppf_6);
+
+  pairs1.clear();
+  pairs6.clear();
+
+  auto it_1 = PPFMap.find(ppf_1);
+  if(it_1 != PPFMap.end())
+    pairs1 = it_1->second;
+
+  auto it_2 = PPFMap.find(ppf_6);
+  if(it_2 != PPFMap.end())
+    pairs6 = it_2->second;
 
   clustering_time += float( clock () - expract_pair_start ) /  CLOCKS_PER_SEC;
 
   if (operMode == 0 || operMode == 1){
-    // std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"
-    //           << pairs1.size() << " - "
-    //           << pairs6.size() << std::endl;
+    std::cout << "Super4PCS::TryOneBase::Pair creation output: \n"
+              << pairs1.size() << " - "
+              << pairs6.size() << std::endl;
 
     if (pairs1.size() == 0 || pairs6.size() == 0) {
       return false;

@@ -1,6 +1,5 @@
 #include <GlobalCfg.hpp>
 #include <SceneCfg.hpp>
-#include <PoseVisualization.hpp>
 
 // global config pointer
 GlobalCfg *pCfg;
@@ -203,7 +202,7 @@ int main(int argc, char **argv){
   ros::spin();
   runVizThread = 0;
 
-  // marker_thread.join();
+  marker_thread.join();
   return 0;
 }
 

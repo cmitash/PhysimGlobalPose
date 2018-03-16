@@ -64,7 +64,6 @@ namespace utilities{
 	*******************************************************************************************************/
 
 	void readProbImage(cv::Mat &probImg, std::string path){
-		std::cout << path << std::endl;
 		cv::Mat depthImgRaw = cv::imread(path, CV_16UC1);
 		probImg = cv::Mat::zeros(depthImgRaw.rows, depthImgRaw.cols, CV_32FC1);
 		for(int u=0; u<depthImgRaw.rows; u++)

@@ -84,8 +84,6 @@ class segmentation:
     image_np = np.expand_dims(image_np, axis=0)
     image_np = preprocess_input(image_np)
 
-    # K.set_session(self.session)
-
     print (image_np.shape)
     with self.graph.as_default():
         start = time.time()
@@ -106,7 +104,8 @@ class segmentation:
 
     # get per class probability
 
-    for classVal in range(0,self.num_classes):
+    active_object_list = active_object_list + (0,)
+    for classVal in active_object_list:
         class_prob = prob_result[:,:,classVal]
         super_threshold_indices = class_prob < 0
         class_prob[super_threshold_indices] = 0
@@ -117,39 +116,39 @@ class segmentation:
         class_prob_int = class_prob_int[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
         cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/%s.png' % (object_map[classVal])), class_prob_int)
 
-    result = np.argmax(np.squeeze(result), axis=-1).astype(np.uint16)
-    result_img = result[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
-    result_img = result_img.astype(np.uint16)
-    cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/frame-000000.fcn.mask.png'), result_img)
+    # result = np.argmax(np.squeeze(result), axis=-1).astype(np.uint16)
+    # result_img = result[pad_h/2:pad_h/2+img_h, pad_w/2:pad_w/2+img_w]
+    # result_img = result_img.astype(np.uint16)
+    # cv2.imwrite(os.path.join(req.scene_path,'debug_super4PCS/frame-000000.fcn.mask.png'), result_img)
 
-    result_img_class = result_img.astype(np.uint8)
-    result_img_class = Image.fromarray(result_img_class, mode='P')
-    result_img_class.putpalette([
-    0, 0, 0, # black background
-    255, 0, 0, # index 1
-    255, 128, 0, # index 2
-    255, 255, 0, # index 3
-    128, 255, 0, # index 4
-    0, 255, 0, # index 5
-    0, 255, 128, # index 6
-    0, 255, 255, # index 7
-    0, 128, 255, # index 8
-    0, 0, 255, # index 9
-    127, 0, 255, # index 10
-    255, 0, 255, # index 11
-    255, 0, 127, # index 12
-    128, 128, 128, # index 13
-    255, 204, 204, # index 14
-    204, 204, 255, # index 15
-    204, 255, 255, # index 16
-    204, 102, 0, # index 17
-    153, 153, 0, # index 18
-    102, 0, 51, # index 19
-    102, 102, 0, # index 20
-    255, 255, 255, # index 21
-    ])
+    # result_img_class = result_img.astype(np.uint8)
+    # result_img_class = Image.fromarray(result_img_class, mode='P')
+    # result_img_class.putpalette([
+    # 0, 0, 0, # black background
+    # 255, 0, 0, # index 1
+    # 255, 128, 0, # index 2
+    # 255, 255, 0, # index 3
+    # 128, 255, 0, # index 4
+    # 0, 255, 0, # index 5
+    # 0, 255, 128, # index 6
+    # 0, 255, 255, # index 7
+    # 0, 128, 255, # index 8
+    # 0, 0, 255, # index 9
+    # 127, 0, 255, # index 10
+    # 255, 0, 255, # index 11
+    # 255, 0, 127, # index 12
+    # 128, 128, 128, # index 13
+    # 255, 204, 204, # index 14
+    # 204, 204, 255, # index 15
+    # 204, 255, 255, # index 16
+    # 204, 102, 0, # index 17
+    # 153, 153, 0, # index 18
+    # 102, 0, 51, # index 19
+    # 102, 102, 0, # index 20
+    # 255, 255, 255, # index 21
+    # ])
 
-    result_img_class.save(os.path.join(req.scene_path,'debug_super4PCS/frame-000000.fcn.class.png'))
+    # result_img_class.save(os.path.join(req.scene_path,'debug_super4PCS/frame-000000.fcn.class.png'))
     end = time.time()
     print(end - start)
     return 1

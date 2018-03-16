@@ -20,7 +20,7 @@ namespace objects{
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModelSampled;
 		pcl::PolygonMesh objModel;
 		Eigen::Vector3f symInfo;
-		std::map<std::vector<int>, int> PPFMap;
+		std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap;
 		int max_count_ppf;
 	};
 }
