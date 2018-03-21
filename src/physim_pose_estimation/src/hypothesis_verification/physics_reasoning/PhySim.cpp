@@ -51,7 +51,7 @@ namespace physim{
 	*******************************************************************************************************/
 
 	void PhySim::initRigidBody(std::string objName){
-		std::string sfileName = env_p + "/models/obj/" + objName + ".obj";
+		std::string sfileName = "/home/chaitanya/github/PhysimGlobalPose/models/" + objName + "/" + objName + ".obj";
 		const char* cfileName = sfileName.c_str();
 		GLInstanceGraphicsShape* glmesh = LoadMeshFromObj(cfileName, "");
 		std::cout << "[INFO] Obj loaded: Extracted "<< glmesh->m_numvertices << " vertices from obj file " << sfileName << std::endl;

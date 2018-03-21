@@ -12,10 +12,10 @@ namespace utilities{
 int runVizThread = 1;
 
 // depth_sim package
-// void initScene (int argc, char **argv);
-// void addObjects(pcl::PolygonMesh::Ptr mesh);
-// void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
-// void clearScene();
+void initScene (int argc, char **argv);
+void addObjects(pcl::PolygonMesh::Ptr mesh);
+void renderDepth(Eigen::Matrix4f pose, cv::Mat &depth_image, std::string path);
+void clearScene();
 
 void publishMarkers(std::vector<visualization_msgs::Marker> &marker, std::vector<ros::Publisher> &marker_pub, ros::Publisher pub) {
   while(runVizThread){
@@ -168,7 +168,7 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "physim_node");
   pCfg = new GlobalCfg();
   
-  // initScene (0, NULL); // Initialize openGL for rendering
+  initScene (0, NULL); // Initialize openGL for rendering
 
   pCfg->loadObjects();
 

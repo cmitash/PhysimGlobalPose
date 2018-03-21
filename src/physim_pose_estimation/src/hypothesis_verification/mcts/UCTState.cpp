@@ -49,8 +49,8 @@ namespace uct_state{
 		int finalObjectIdx = objects.size()-1;
 
 		if(finalObjectIdx >= 0) {
-			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
-			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[finalObjectIdx].first->objModel));
+			pcl::PolygonMesh::Ptr mesh_in (new pcl::PolygonMesh (objects[finalObjectIdx].first->pObject->objModel));
+			pcl::PolygonMesh::Ptr mesh_out (new pcl::PolygonMesh (objects[finalObjectIdx].first->pObject->objModel));
 			Eigen::Matrix4f transform;
 			utilities::convertToMatrix(objects[finalObjectIdx].second, transform);
 			utilities::convertToWorld(transform, cam_pose);
@@ -74,7 +74,7 @@ namespace uct_state{
 	/********************************* function: updateNewObject *******************************************
 	*******************************************************************************************************/
 
-	void UCTState::updateNewObject(apc_objects::APCObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
+	void UCTState::updateNewObject(scene_cfg::SceneObjects* newObj, std::pair <Eigen::Isometry3d, float> pose, int maxDepth){
 		objects.push_back(std::make_pair(newObj, pose.first));
 	}
 
@@ -124,13 +124,18 @@ namespace uct_state{
 		PointCloud::Ptr transformedCloud (new PointCloud);
 		PointCloud::Ptr unexplainedSegment (new PointCloud);
 		PointCloud::Ptr explainedPts (new PointCloud);
+		PointCloud::Ptr modelCloud (new PointCloud);
+
+		std::cout << "object: " << objects[numObjects-1].first->pObject->objName << std::endl;
+		copyPointCloud(*objects[numObjects-1].first->pObject->pclModel, *modelCloud);
+
 		pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
 		Eigen::Matrix4f tform;
 		
 		// initialize trimmed ICP
 		pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
 		pcl::recognition::TrimmedICP<pcl::PointXYZ, float> tricp;
-		tricp.init(objects[numObjects-1].first->pclModel);
+		tricp.init(modelCloud);
 		tricp.setNewToOldEnergyRatio(1.f);
 
 		// remove points explained by objects already placed objects
@@ -145,7 +150,7 @@ namespace uct_state{
 			for(int ii=0; ii<numObjects-1; ii++) {
 				Eigen::Matrix4f objPose;
 				utilities::convertToMatrix(objects[ii].second, objPose);
-				pcl::transformPointCloud(*objects[ii].first->pclModel, *transformedCloud, objPose);
+				pcl::transformPointCloud(*modelCloud, *transformedCloud, objPose);
 				*explainedPts += *transformedCloud;
 			}
 
@@ -177,20 +182,20 @@ namespace uct_state{
 		
 		// get current object transform
 		utilities::convertToMatrix(objects[numObjects-1].second, tform);
-		tform = tform.inverse().eval();
+		utilities::invertTransformationMatrix(tform);
 
 		#ifdef DBG_ICP
 		std::cout<< "size of cloud: "<<abs(numPoints)<<std::endl;
-		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform.inverse().eval());
+		pcl::transformPointCloud(*modelCloud, *transformedCloud, tform.inverse().eval());
 		std::string input3 = scenePath + "debug_search/render" + stateId + "_Premodel.ply";
 		pcl::io::savePLYFile(input3, *transformedCloud);
 		#endif
 
 		tricp.align(*unexplainedSegment, abs(numPoints), tform);
-		tform = tform.inverse().eval();
+		utilities::invertTransformationMatrix(tform);
 
 		#ifdef DBG_ICP
-		pcl::transformPointCloud(*objects[numObjects-1].first->pclModel, *transformedCloud, tform);
+		pcl::transformPointCloud(*modelCloud, *transformedCloud, tform);
 		std::string input4 = scenePath + "debug_search/render" + stateId + "_Postmodel.ply";
 		pcl::io::savePLYFile(input4, *transformedCloud);
 		#endif
@@ -210,7 +215,7 @@ namespace uct_state{
 			utilities::convertToMatrix(objects[ii].second, camTform);
 			utilities::convertToWorld(camTform, cam_pose);
 			utilities::convertToIsometry3d(camTform, worldPose);
-			pSim->addObject(objects[ii].first->objName, worldPose, 0.0f);
+			pSim->addObject(objects[ii].first->pObject->objName, worldPose, 0.0f);
 		}
 
 		Eigen::Matrix4f camTform, worldTform;
@@ -219,7 +224,7 @@ namespace uct_state{
 		utilities::convertToWorld(camTform, cam_pose);
 		utilities::convertToIsometry3d(camTform, worldPose);
 
-		pSim->addObject(objects[numObjects-1].first->objName, worldPose, 10.0f);
+		pSim->addObject(objects[numObjects-1].first->pObject->objName, worldPose, 10.0f);
 
 		#ifdef DBG_PHYSICS
 		std::ofstream cfg_in;
@@ -227,10 +232,10 @@ namespace uct_state{
 		cfg_in.open (path_in.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_in;
 		for(int ii=0; ii<numObjects; ii++){
-			pSim->getTransform(objects[ii].first->objName, pose_in);
+			pSim->getTransform(objects[ii].first->pObject->objName, pose_in);
 			Eigen::Vector3d trans_in = pose_in.translation();
 			Eigen::Quaterniond rot_in(pose_in.rotation()); 
-			cfg_in << objects[ii].first->objName << " " << trans_in[0] << " " << trans_in[1] << " " << trans_in[2]
+			cfg_in << objects[ii].first->pObject->objName << " " << trans_in[0] << " " << trans_in[1] << " " << trans_in[2]
 				<< " " << rot_in.x() << " " << rot_in.y() << " " << rot_in.z() << " " << rot_in.w() << std::endl;
 		}
 		cfg_in.close();
@@ -244,10 +249,10 @@ namespace uct_state{
 		cfg_out.open (path_out.c_str(), std::ofstream::out | std::ofstream::app);
 		Eigen::Isometry3d pose_out;
 		for(int ii=0; ii<numObjects; ii++){
-			pSim->getTransform(objects[ii].first->objName, pose_out);
+			pSim->getTransform(objects[ii].first->pObject->objName, pose_out);
 			Eigen::Vector3d trans_out = pose_out.translation();
 			Eigen::Quaterniond rot_out(pose_out.rotation()); 
-			cfg_out << objects[ii].first->objName << " " << trans_out[0] << " " << trans_out[1] << " " << trans_out[2]
+			cfg_out << objects[ii].first->pObject->objName << " " << trans_out[0] << " " << trans_out[1] << " " << trans_out[2]
 				<< " " << rot_out.x() << " " << rot_out.y() << " " << rot_out.z() << " " << rot_out.w() << std::endl;
 		}
 		cfg_out.close();
@@ -255,13 +260,13 @@ namespace uct_state{
 
 		Eigen::Isometry3d finalPose;
 		Eigen::Matrix4f tform;
-		pSim->getTransform(objects[numObjects-1].first->objName, finalPose);
+		pSim->getTransform(objects[numObjects-1].first->pObject->objName, finalPose);
 		utilities::convertToMatrix(finalPose, tform);
 		utilities::convertToCamera(tform, cam_pose);
 		utilities::convertToIsometry3d(tform, objects[numObjects-1].second);
 
 		for(int ii=0; ii<numObjects; ii++)
-			pSim->removeObject(objects[ii].first->objName);
+			pSim->removeObject(objects[ii].first->pObject->objName);
 	}
 
 	/******************************** function: getBestChild ************************************************

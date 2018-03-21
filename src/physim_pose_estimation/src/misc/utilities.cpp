@@ -295,11 +295,37 @@ namespace utilities{
 		transform = cam_pose*transform.eval();
 	}
 
+	/********************************* function: invertTransformationMatrix *******************************
+	*******************************************************************************************************/
+	void invertTransformationMatrix(Eigen::Matrix4f &tform){
+		Eigen::Matrix3f rotm;
+		Eigen::Vector3f trans;
+		for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++)
+				rotm(ii,jj) = tform(ii,jj);
+		trans[0] = tform(0,3);
+		trans[1] = tform(1,3);
+		trans[2] = tform(2,3);
+
+		rotm = rotm.inverse().eval();
+		trans = rotm*trans;
+
+		for(int ii = 0;ii < 3; ii++)
+			for(int jj=0; jj < 3; jj++)
+				tform(ii,jj) = rotm(ii,jj);
+		tform(0,3) = -trans[0];
+		tform(1,3) = -trans[1];
+		tform(2,3) = -trans[2];
+	}
+
 	/********************************* function: convertToCamera *******************************************
 	*******************************************************************************************************/
 
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose){
-		tform = cam_pose.inverse().eval()*tform.eval();
+		Eigen::Matrix4f invCam(cam_pose);
+
+		invertTransformationMatrix(invCam);
+		tform = invCam*tform.eval();
 	}
 
 	/********************************* function: toEulerianAngle *******************************************

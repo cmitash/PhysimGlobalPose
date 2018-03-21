@@ -6,16 +6,16 @@ bool operator<(const uct_state::UCTState& lhs, const uct_state::UCTState& rhs) {
 
 namespace uct_search{
 	clock_t search_begin_time;
-	float trimICPthreshold = 1.0;
+	float trimICPthreshold = 0.5;
 	int maxSearchTime = 60;
 	int numExpansionsSearch;
 	
 	/********************************* function: constructor ***********************************************
 	*******************************************************************************************************/
 
-	UCTSearch::UCTSearch(std::vector<apc_objects::APCObjects*> objOrder, std::vector<float> tableParams,
+	UCTSearch::UCTSearch(std::vector<scene_cfg::SceneObjects*> objOrder, std::vector<float> tableParams,
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
-					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, std::vector<float> cutOffScore, int rootId){
+					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, int rootId){
 
 		// initialize the root state
 		int numChildNodesRoot = unconditionedHypothesis[0].size();
@@ -23,14 +23,14 @@ namespace uct_search{
 		allStatePtrs.push_back(rootState);
 		rootState->updateStateId(rootId);
 		rootState->updateChildHval(unconditionedHypothesis[0]);
-		
+		std::cout << "Initialized root state with Id: " << rootId << ", number of child state: " << numChildNodesRoot << std::endl;
+
 		// get scene information
 		this->objOrder = objOrder;
 		this->unconditionedHypothesis = unconditionedHypothesis;
 		this->scenePath = scenePath;
 		this->camPose = camPose;
 		this->depthImage = depthImage;
-		this->cutOffScore = cutOffScore;
 
 		// initialize best state
 		bestState = new uct_state::UCTState(0, numChildNodesRoot, NULL);
@@ -40,7 +40,7 @@ namespace uct_search{
 		pSim = new physim::PhySim(tableParams);
 		pSim->addTable(tableParams);
 		for(int ii=0; ii<objOrder.size(); ii++)
-			pSim->initRigidBody(objOrder[ii]->objName);
+			pSim->initRigidBody(objOrder[ii]->pObject->objName);
 
 		search_begin_time = clock();
 		numExpansionsSearch = 0;
@@ -95,7 +95,7 @@ namespace uct_search{
 
 			tmpState->updateStateId(bestIdx);
 			tmpState->updateNewObject(objOrder[tmpState->numObjects-1], unconditionedHypothesis[tmpState->numObjects-1][bestIdx], maxDepth);
-			tmpState->performTrICP(scenePath, trimICPthreshold);
+			// tmpState->performTrICP(scenePath, trimICPthreshold);
 			tmpState->correctPhysics(pSim, camPose, scenePath);
 			tmpState->render(camPose, scenePath);
 		}
@@ -110,7 +110,7 @@ namespace uct_search{
 
 		if(currScore < bestRenderScore){
 			bestState->numObjects = tmpState->numObjects;
-			bestState->objects = std::vector<std::pair<apc_objects::APCObjects*, Eigen::Isometry3d> >(tmpState->numObjects);
+			bestState->objects = std::vector<std::pair<scene_cfg::SceneObjects*, Eigen::Isometry3d> >(tmpState->numObjects);
 			for(int jj=0;jj<tmpState->numObjects;jj++)
       			bestState->objects[jj] = tmpState->objects[jj];
 
@@ -120,10 +120,10 @@ namespace uct_search{
 		      Eigen::Matrix4f tform;
 		      utilities::convertToMatrix(bestState->objects[ii].second, tform);
 		      utilities::convertToWorld(tform, camPose);
-		      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "debug_search/after_search");
+		      utilities::writePoseToFile(tform, bestState->objects[ii].first->pObject->objName, scenePath, "debug_search/after_search");
 
 		      ofstream pFile;
-		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->pObject->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 			  pFile << numExpansionsSearch << " " << bestRenderScore << " " << tmpState->stateId  << std::endl;
 			  pFile.close();
 		    } 
@@ -154,7 +154,7 @@ namespace uct_search{
 			int randHypothesis = rand() % unconditionedHypothesis[tmpState->numObjects-1].size();
 			tmpState->updateStateId(randHypothesis);
 			tmpState->updateNewObject(objOrder[tmpState->numObjects-1], unconditionedHypothesis[tmpState->numObjects-1][randHypothesis], maxDepth);
-			tmpState->performTrICP(scenePath, trimICPthreshold);
+			// tmpState->performTrICP(scenePath, trimICPthreshold);
 			tmpState->correctPhysics(pSim, camPose, scenePath);
 			tmpState->render(camPose, scenePath);
 		}
@@ -169,7 +169,7 @@ namespace uct_search{
 
 		if(currScore < bestRenderScore){
 			bestState->numObjects = tmpState->numObjects;
-			bestState->objects = std::vector<std::pair<apc_objects::APCObjects*, Eigen::Isometry3d> >(tmpState->numObjects);
+			bestState->objects = std::vector<std::pair<scene_cfg::SceneObjects*, Eigen::Isometry3d> >(tmpState->numObjects);
 			for(int jj=0;jj<tmpState->numObjects;jj++)
       			bestState->objects[jj] = tmpState->objects[jj];
 
@@ -179,10 +179,10 @@ namespace uct_search{
 		      Eigen::Matrix4f tform;
 		      utilities::convertToMatrix(bestState->objects[ii].second, tform);
 		      utilities::convertToWorld(tform, camPose);
-		      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "debug_search/after_search");
+		      utilities::writePoseToFile(tform, bestState->objects[ii].first->pObject->objName, scenePath, "debug_search/after_search");
 
 		      ofstream pFile;
-		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->pObject->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 			  pFile << numExpansionsSearch << " " << bestRenderScore << " " << tmpState->stateId  << std::endl;
 			  pFile.close();
 		    } 
@@ -204,7 +204,7 @@ namespace uct_search{
 		int bestChildIdx = -1;
 		float bestHval = 0;
 		for(int ii=0; ii<currState->numChildren; ii++){
-			if(currState->isExpanded[ii] == 0 && currState->hval[ii] > bestHval){
+			if(currState->isExpanded[ii] == 0 && currState->hval[ii] >= bestHval){
 				bestHval = currState->hval[ii];
 				bestChildIdx = ii;
 			}
@@ -222,7 +222,7 @@ namespace uct_search{
 		childState->updateStateId(bestChildIdx);
 		childState->updateNewObject(objOrder[currState->numObjects], unconditionedHypothesis[currState->numObjects][bestChildIdx], maxDepth);
 		childState->updateChildHval(unconditionedHypothesis[currState->numObjects]);
-		childState->performTrICP(scenePath, trimICPthreshold);
+		// childState->performTrICP(scenePath, trimICPthreshold);
 		childState->correctPhysics(pSim, camPose, scenePath);
 		childState->render(camPose, scenePath);
 		childState->computeCost(depthImage);
@@ -230,7 +230,7 @@ namespace uct_search{
 		// if the expanded node is the leaf node
 		if(childState->numObjects == maxDepth && childState->renderScore < bestRenderScore){
 			bestState->numObjects = childState->numObjects;
-			bestState->objects = std::vector<std::pair<apc_objects::APCObjects*, Eigen::Isometry3d> >(childState->numObjects);
+			bestState->objects = std::vector<std::pair<scene_cfg::SceneObjects*, Eigen::Isometry3d> >(childState->numObjects);
 			for(int jj=0;jj<childState->numObjects;jj++)
       			bestState->objects[jj] = childState->objects[jj];
 
@@ -240,10 +240,10 @@ namespace uct_search{
 		      Eigen::Matrix4f tform;
 		      utilities::convertToMatrix(bestState->objects[ii].second, tform);
 		      utilities::convertToWorld(tform, camPose);
-		      utilities::writePoseToFile(tform, bestState->objects[ii].first->objName, scenePath, "debug_search/after_search");
+		      utilities::writePoseToFile(tform, bestState->objects[ii].first->pObject->objName, scenePath, "debug_search/after_search");
 
 		      ofstream pFile;
-		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
+		      pFile.open ((scenePath + "debug_search/times_" + bestState->objects[ii].first->pObject->objName + ".txt").c_str(), std::ofstream::out | std::ofstream::app);
 			  pFile << numExpansionsSearch << " " << bestRenderScore << " " << childState->stateId  << std::endl;
 			  pFile.close();
 		    } 
@@ -301,7 +301,7 @@ namespace uct_search{
 			
 			std::cout << "UCTSearch::performSearch:: Number of states expanded: " << numExpansionsSearch << std::endl;
 			uct_state::UCTState *selState = treePolicy(rootState);
-			float reward = LCPPolicy(selState);
+			float reward = defaultPolicy(selState);
 			backupReward(selState, reward);
 		}
 	}

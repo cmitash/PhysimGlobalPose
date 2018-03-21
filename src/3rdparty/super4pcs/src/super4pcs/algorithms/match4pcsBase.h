@@ -124,7 +124,7 @@ public:
                           std::vector<Point3D>* Q_hull,
                           Eigen::Isometry3d &bestPose,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
-                          std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf,
+                          std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf,
                           Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath);
 
 protected:
@@ -187,7 +187,7 @@ protected:
     float total_time;
 
     // hashmap of point pair features to the count on model
-    std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap; 
+    std::map<std::vector<int>, std::vector<std::pair<int,int> > > *PPFMap; 
     // maximum count of any ppf on model
     int max_count_ppf;
     // translational discretization for point pair features
@@ -279,7 +279,7 @@ public:
                          const std::vector<Point3D>& Q_validation,
                          std::string probImagePath,
                          Eigen::Matrix3f camIntrinsic, std::string objName,
-                         std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf);
+                         std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf);
 
     // Selects a quadrilateral from P and returns the corresponding invariants
     // and point indices. Returns true if a quadrilateral has been found, false

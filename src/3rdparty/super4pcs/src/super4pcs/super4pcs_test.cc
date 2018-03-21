@@ -29,7 +29,7 @@ double max_color = -1;
 int n_points = 400; // not used
 
 // Maximum angle (degrees) between corresponded normals.
-double norm_diff = 15;
+double norm_diff = -1;
 
 // Maximum allowed computation time.
 int max_time_seconds = 2;
@@ -39,7 +39,7 @@ bool use_super4pcs = true;
 void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, 
       std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
       std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
-      std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf, 
+      std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf, 
       Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath) {
 
   using namespace Super4PCS;

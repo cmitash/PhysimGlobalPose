@@ -1,7 +1,7 @@
 #ifndef UCT_STATE
 #define UCT_STATE
 
-#include <APCObjects.hpp>
+#include <SceneCfg.hpp>
 #include <PhySim.hpp>
 
 namespace uct_state{
@@ -11,7 +11,7 @@ namespace uct_state{
 			UCTState(unsigned int numObjects, int numChildNodes, UCTState* parent);
 			~UCTState();
 			void copyParent(UCTState*);
-			void updateNewObject(apc_objects::APCObjects*, std::pair <Eigen::Isometry3d, float>, int maxDepth);
+			void updateNewObject(scene_cfg::SceneObjects*, std::pair <Eigen::Isometry3d, float>, int maxDepth);
 			void render(Eigen::Matrix4f, std::string);
 			void updateStateId(int num);
 			void computeCost(cv::Mat obsImg);
@@ -25,7 +25,7 @@ namespace uct_state{
 			unsigned int numObjects;
 			int numChildren;
 
-			std::vector<std::pair<apc_objects::APCObjects*, Eigen::Isometry3d> > objects;
+			std::vector<std::pair<scene_cfg::SceneObjects*, Eigen::Isometry3d> > objects;
 			UCTState* parentState;
 			std::vector<UCTState*> children;
 			std::vector<int> isExpanded;

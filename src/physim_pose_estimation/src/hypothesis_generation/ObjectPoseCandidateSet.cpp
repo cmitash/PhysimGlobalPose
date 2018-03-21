@@ -3,7 +3,7 @@
 // Super4PCS package
 void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std::string input3, std::pair<Eigen::Isometry3d, float> &bestHypothesis, 
             std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet, std::string probImagePath, 
-            std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf, Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath);
+            std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf, Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath);
 
 namespace pose_candidates{
 
@@ -19,7 +19,7 @@ namespace pose_candidates{
 	void ObjectPoseCandidateSet::generate(std::string objName, std::string scenePath, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
 				pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModelSampled, 
-				std::map<std::vector<int>, std::vector<std::pair<int,int> > > PPFMap, int max_count_ppf, Eigen::Matrix4f camPose, Eigen::Matrix3f camIntrinsic/*, std::thread &th_id*/){
+				std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf, Eigen::Matrix4f camPose, Eigen::Matrix3f camIntrinsic/*, std::thread &th_id*/){
 
 		// pcl::VoxelGrid<pcl::PointXYZRGBNormal> sor;
 		// sor.setInputCloud (pclSegment);

@@ -111,7 +111,6 @@ namespace segmentation{
         }
       }
 
-
       // Calling FCN
       segsrv.request.scene_path = sCfg->scenePath;
       if (clientbox.call(segsrv)){
@@ -158,13 +157,6 @@ namespace segmentation{
       // Calling FCN
       segsrv.request.scene_path = sCfg->scenePath;
       if (clientbox.call(segsrv)){
-        // cv::Mat sumImg = cv::Mat::zeros(480, 640, CV_32FC1);
-        // for(int ii=0; ii<sCfg->numObjects; ii++){
-        //   cv::Mat probImage;
-        //   utilities::readDepthImage(probImage, sCfg->scenePath + "debug_super4PCS/" + sCfg->pSceneObjects[ii]->pObject->objName + ".png");
-        //   cv::add(probImage, sumImg, sumImg);
-        // }
-
         for(int ii=0; ii<sCfg->numObjects; ii++){
           cv::Mat probImage, bkgProbImg;
           utilities::readProbImage(probImage, sCfg->scenePath + "debug_super4PCS/" + sCfg->pSceneObjects[ii]->pObject->objName + ".png");
@@ -174,11 +166,9 @@ namespace segmentation{
 
           for(int u=0; u<imgHeight; u++){
             for(int v=0; v<imgWidth; v++) {
-              // if(!sumImg.at<float>(u,v))continue;
               float probVal = probImage.at<float>(u,v);
               float bkgProb = bkgProbImg.at<float>(u,v);
-              // probVal = probVal/(float)sumImg.at<float>(u,v);
-              if(probVal > 0.4 && bkgProb < 0.8)
+              if(probVal > 0.2 && bkgProb < 0.8)
                 sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
               }
           }
@@ -207,7 +197,7 @@ namespace segmentation{
           int classVal = (int)classImage.at<uchar>(u,v);
           if(sCfg->pSceneObjects[ii]->pObject->objIdx == classVal){
             sCfg->pSceneObjects[ii]->objMask.at<float>(u,v) = 1.0;
-            probImage.at<float>(u,v) = 10000;
+            probImage.at<unsigned short>(u,v) = 10000;
           }
         }
 

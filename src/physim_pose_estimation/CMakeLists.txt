@@ -76,7 +76,18 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${CATKIN_DEVEL_PREFIX}/include
+  $ENV{BULLET_PHYSICS_PATH}/src
 )
+
+set(RIGIDBODY_EXAMPLE_OBJS $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/LoadMeshFromObj.o
+                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/tiny_obj_loader.o
+                           $ENV{BULLET_PHYSICS_PATH}/build3/gmake/obj/x64/Release/App_RigidBodyFromObjExample/Wavefront2GLInstanceGraphicsShape.o
+                           )
+
+set(BULLET_LIBS $ENV{BULLET_PHYSICS_PATH}/bin/libBulletDynamics_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libBulletCollision_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libLinearMath_gmake_x64_release.a 
+  $ENV{BULLET_PHYSICS_PATH}/bin/libBullet3Common_gmake_x64_release.a)
 
 ## Declare a C++ executable
 add_executable(physim_pose_estimation ${RIGIDBODY_EXAMPLE_OBJS}
@@ -88,6 +99,9 @@ add_executable(physim_pose_estimation ${RIGIDBODY_EXAMPLE_OBJS}
                           src/segmentation/Segmentation.cpp
                           src/hypothesis_generation/ObjectPoseCandidateSet.cpp
                           src/hypothesis_verification/HypothesisSelection.cpp
+                          src/hypothesis_verification/mcts/UCTSearch.cpp
+                          src/hypothesis_verification/mcts/UCTState.cpp
+                          src/hypothesis_verification/physics_reasoning/PhySim.cpp
                           )
 
 add_dependencies(physim_pose_estimation ${catkin_EXPORTED_TARGETS})
@@ -98,4 +112,6 @@ target_link_libraries(physim_pose_estimation
   ${OpenCV_LIBRARIES}
   ${PCL_LIBRARIES}
   ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
+  ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
+  ${BULLET_LIBS}
 )

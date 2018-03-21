@@ -106,7 +106,7 @@ namespace scene_cfg{
 		Eigen::Matrix4f icpTransform;
 
 		pcl::io::loadPLYFile(scenePath + "debug_super4PCS/scene.ply", *SampledSceneCloud);
-		pcl::io::loadPLYFile(scenePath + "table.ply", *SampledTableCloud);
+		pcl::io::loadPLYFile(scenePath + "../table.ply", *SampledTableCloud);
 
 		// get table inlier points
 		pcl::transformPointCloud(*SampledSceneCloud, *sceneCloudTrans, camPose);
@@ -139,8 +139,9 @@ namespace scene_cfg{
 		icp.setTransformationEpsilon (1e-9);
 		icp.align(Final);
 		icpTransform = icp.getFinalTransformation();
-		tablePose = icpTransform.inverse().eval()*tablePose;
-		
+		utilities::invertTransformationMatrix(icpTransform);
+		tablePose = icpTransform*tablePose;
+
 		tableParams.push_back(tablePose(0,0));
 		tableParams.push_back(tablePose(0,1));
 		tableParams.push_back(tablePose(0,2));
@@ -405,6 +406,8 @@ namespace scene_cfg{
 
 		if(!HVMode.compare("LCP"))
 			hSelect = new hypothesis_selection::LCPSelection();
+		else if(!HVMode.compare("MCTS"))
+			hSelect = new hypothesis_selection::MCTSSelection();
 		else
 			hSelect = new hypothesis_selection::LCPSelection();
 

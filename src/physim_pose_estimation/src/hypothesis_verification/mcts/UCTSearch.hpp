@@ -2,16 +2,16 @@
 #define UCT_SEARCH
 
 #include <UCTState.hpp>
-#include <Scene.hpp>
+#include <SceneCfg.hpp>
 #include <PhySim.hpp>
 
 namespace uct_search{
 	
 	class UCTSearch{
 		public:
-			UCTSearch(std::vector<apc_objects::APCObjects*> objOrder, std::vector<float> tableParams,
+			UCTSearch(std::vector<scene_cfg::SceneObjects*> objOrder, std::vector<float> tableParams,
 					std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis,
-					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, std::vector<float> cutOffScore, int rootId);
+					std::string scenePath, Eigen::Matrix4f camPose, cv::Mat depthImage, int rootId);
 			~UCTSearch();
 			void performSearch();
 			uct_state::UCTState* expand(uct_state::UCTState *currState);
@@ -22,12 +22,11 @@ namespace uct_search{
 
 			uct_state::UCTState *rootState;
 
-			std::vector<apc_objects::APCObjects*> objOrder;
+			std::vector<scene_cfg::SceneObjects*> objOrder;
 			std::vector< std::vector< std::pair <Eigen::Isometry3d, float> > > unconditionedHypothesis;
 			std::string scenePath;
 			Eigen::Matrix4f camPose;
 			cv::Mat depthImage;
-			std::vector<float> cutOffScore;
 
 			uct_state::UCTState *bestState;
 			unsigned int bestRenderScore;

@@ -84,6 +84,7 @@ namespace utilities{
 	void TransformPolyMesh(const pcl::PolygonMesh::Ptr &mesh_in, pcl::PolygonMesh::Ptr &mesh_out, Eigen::Matrix4f transform);
 	void convertToMatrix(Eigen::Isometry3d &from, Eigen::Matrix4f &to);
 	void convertToIsometry3d(Eigen::Matrix4f &from, Eigen::Isometry3d &to);
+	void invertTransformationMatrix(Eigen::Matrix4f &tform);
 	void convertToWorld(Eigen::Matrix4f &transform, Eigen::Matrix4f &cam_pose);
 	void convertToCamera(Eigen::Matrix4f &tform, Eigen::Matrix4f &cam_pose);
 	float getRotDistance(Eigen::Matrix3f rotMat1, Eigen::Matrix3f rotMat2, Eigen::Vector3f symInfo);
