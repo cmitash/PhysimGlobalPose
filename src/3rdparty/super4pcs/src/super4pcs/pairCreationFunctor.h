@@ -216,22 +216,22 @@ public:
       }
 
       // pair filtering - PPF constraint starts.
-      int trans_disc = 10;
-      int rot_disc = 15;
+      // int trans_disc = 10;
+      // int rot_disc = 15;
 
-      const VectorType u = q.pos() - p.pos();
-      int ppf_1 = int(u.norm()*1000);
-      int ppf_2 = int(atan2(q.normal().cross(u).norm(), q.normal().dot(u))*180/M_PI);
-      int ppf_3 = int(atan2(p.normal().cross(u).norm(), p.normal().dot(u))*180/M_PI);
-      int ppf_4 = int(atan2(q.normal().cross(p.normal()).norm(), q.normal().dot(p.normal()))*180/M_PI);
+      // const VectorType u = q.pos() - p.pos();
+      // int ppf_1 = int(u.norm()*1000);
+      // int ppf_2 = int(atan2(q.normal().cross(u).norm(), q.normal().dot(u))*180/M_PI);
+      // int ppf_3 = int(atan2(p.normal().cross(u).norm(), p.normal().dot(u))*180/M_PI);
+      // int ppf_4 = int(atan2(q.normal().cross(p.normal()).norm(), q.normal().dot(p.normal()))*180/M_PI);
 
-      ppf_1 = approximate_bin(ppf_1, trans_disc);
-      ppf_2 = approximate_bin(ppf_2, rot_disc);
-      ppf_3 = approximate_bin(ppf_3, rot_disc);
-      ppf_4 = approximate_bin(ppf_4, rot_disc);
+      // ppf_1 = approximate_bin(ppf_1, trans_disc);
+      // ppf_2 = approximate_bin(ppf_2, rot_disc);
+      // ppf_3 = approximate_bin(ppf_3, rot_disc);
+      // ppf_4 = approximate_bin(ppf_4, rot_disc);
 
-      if(ppf_1 != ppf_[0] || ppf_4 != ppf_[3])return;
-      if(!(ppf_2 == ppf_[1] && ppf_3 == ppf_[2]) && !(ppf_2 == ppf_[2] && ppf_3 == ppf_[1])) return;
+      // if(ppf_1 != ppf_[0] || ppf_4 != ppf_[3])return;
+      // if(!(ppf_2 == ppf_[1] && ppf_3 == ppf_[2]) && !(ppf_2 == ppf_[2] && ppf_3 == ppf_[1])) return;
       // pair filtering - PPF constraint ends.
       
       // need cleaning here

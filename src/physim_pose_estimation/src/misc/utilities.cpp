@@ -53,7 +53,7 @@ namespace utilities{
 				unsigned short depthShort = depthImgRaw.at<unsigned short>(u,v);
 
 				//TODO: need to manually uncomment for APC objects
-				// depthShort = (depthShort << 13 | depthShort >> 3);
+				depthShort = (depthShort << 13 | depthShort >> 3);
 				
 				float depth = (float)depthShort/10000;
 				depthImg.at<float>(u, v) = depth;
@@ -483,6 +483,31 @@ namespace utilities{
 	   error = cv::EMD(sig1, sig2, CV_DIST_L2); //emd 0 is best matching.   
 	}
 
+	/********************************* function: c_dist_pose **********************************************
+	*******************************************************************************************************/
+
+	// float c_dist_pose(Eigen::Matrix4f pose_1, Eigen::Matrix4f pose_2, PointCloud::Ptr objModel) {
+	//   size_t number_of_points = objModel->points.size();
+
+	//   float max_distance = 0;
+	//   for(int ii=0; ii<number_of_points; ii++){
+	//     float min_distance = FLT_MAX;
+
+	//     Eigen::Matrix<Scalar, 3, 1> p = (allTransforms[index_1]*hull_Q_3D[ii].pos().homogeneous()).head<3>();
+	//     for(int jj=0; jj<number_of_points; jj++){
+	//       Eigen::Matrix<Scalar, 3, 1> q = (allTransforms[index_2]*hull_Q_3D[jj].pos().homogeneous()).head<3>();
+	//       float dist = (p - q).norm();
+	//       if(dist < min_distance)
+	//         min_distance = dist;
+	//     }
+	    
+	//     if(min_distance > max_distance)
+	//       max_distance = min_distance;
+	//   }
+
+	//   return max_distance;
+	// }
+
 	/********************************* function: getPoseError **********************************************
 	*******************************************************************************************************/
 
@@ -654,6 +679,57 @@ namespace utilities{
 		utilities::convertToIsometry3d(tform, finalTransform);
 	}
 
+	/********************************* function: pointToPlaneICP *******************************************
+	*******************************************************************************************************/
+
+	void pointToPlaneICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
+		Eigen::Matrix4f &offsetTransform){
+
+		PointCloudRGBNormal::Ptr modelCloud (new PointCloudRGBNormal);
+		PointCloudRGBNormal::Ptr segmentCloud (new PointCloudRGBNormal);
+		PointCloudRGBNormal segCloudTrans;
+		copyPointCloud(*pclModel, *modelCloud);
+		copyPointCloud(*pclSegment, *segmentCloud);
+
+	    pcl::IterativeClosestPointWithNormals<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal>::Ptr icp ( new pcl::IterativeClosestPointWithNormals<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> () );
+   	    icp->setMaximumIterations ( 100 );
+   	    icp->setInputSource ( segmentCloud ); // not cloud_source, but cloud_source_trans!
+   	    icp->setInputTarget ( modelCloud );
+   	    icp->align ( segCloudTrans );
+   	    if ( icp->hasConverged() ) {
+   	  	  offsetTransform = icp->getFinalTransformation();
+     	  std::cout << "ICP score: " << icp->getFitnessScore() << std::endl;
+   		}
+   	    else {
+     		std::cout << "ICP did not converge." << std::endl;
+     		offsetTransform << 1, 0, 0, 0,
+     						   0, 1, 0, 0,
+     						   0, 0, 1, 0,
+     						   0, 0, 0, 1;
+   	    }
+     }
+
+     /********************************* function: pointMatcherICP *******************************************
+	*******************************************************************************************************/
+
+	void pointMatcherICP(std::string refPath, 
+		std::string dataPath, 
+		Eigen::Matrix4f &offsetTransform){
+
+		const DP ref(DP::load(refPath));
+		const DP data(DP::load(dataPath));
+
+		PM::ICP icp;
+		icp.setDefault();
+		PM::TransformationParameters T = icp(data, ref);
+		std::cout << "Final transformation:" << endl << T << endl;
+
+		offsetTransform << T(0, 0), T(0, 1), T(0, 2), T(0, 3), 
+						   T(1, 0), T(1, 1), T(1, 2), T(1, 3), 
+						   T(2, 0), T(2, 1), T(2, 2), T(2, 3), 
+						   0, 0, 0, 1;
+     }
 	/********************************* end of functions ****************************************************
 	*******************************************************************************************************/
 

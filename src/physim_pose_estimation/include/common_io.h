@@ -57,9 +57,16 @@
 
 #include <geometry_msgs/Pose.h>
 
+#include <pointmatcher/PointMatcher.h>
+
 // definitions
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloudRGB;
+typedef pcl::PointCloud<pcl::PointXYZRGBNormal> PointCloudRGBNormal;
+
+typedef PointMatcher<float> PM;
+typedef PM::DataPoints DP;
+typedef PM::Parameters Parameters;
 
 // #define DBG_ICP
 // #define DBG_PHYSICS
@@ -104,6 +111,12 @@ namespace utilities{
 		Eigen::Isometry3d &currTransform,
 		Eigen::Isometry3d &finalTransform,
 		float trimPercentage);
+	void pointToPlaneICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
+		Eigen::Matrix4f &offsetTransform);
+	void pointMatcherICP(std::string refPath, 
+		std::string dataPath, 
+		Eigen::Matrix4f &offsetTransform);
 }
 
 #endif

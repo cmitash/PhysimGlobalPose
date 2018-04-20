@@ -60,6 +60,8 @@
 
 namespace Super4PCS{
 
+const float EPS = 1.192092896e-07F;
+
 class BaseGraph{
     public:
         using Point3D = match_4pcs::Point3D;
@@ -250,10 +252,7 @@ protected:
     bool Perform_N_steps(std::vector<Point3D>* Q,
                          std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
                          std::string scenePath, std::string objName);
-    bool IncrementalSearch(std::vector<Point3D>* Q, std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, 
-                        std::string scenePath, std::string objName);
-
-    bool ExtractCongruentSet(int baseNumber);
+    bool ExtractCongruentSet(Super4PCS::BaseGraph* baseIt);
 
     // Initializes the data structures and needed values before the match
     // computation.
@@ -356,6 +355,19 @@ public:
                           int base_id4,
                           match_4pcs::Quadrilateral &congruent_quad,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+
+    void computeTransformRT(VectorType& p1, const VectorType& n1, Eigen::Matrix3d& R, Eigen::Vector3d& t);
+    double computeAlpha(VectorType& p1, const VectorType& n1, VectorType& p2);
+    bool ComputeRigidTransformFromCongruentPairHough(std::vector<Super4PCS::BaseGraph*> &baseSet,
+        std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    bool Perform_Hough_Voting(std::vector<Point3D>* Q,
+                                    std::vector< std::pair <Eigen::Isometry3d, float> > &allPose, 
+                                    std::string scenePath, std::string objName);
+    bool SelectQuadrilateralStoCSVoting(Scalar& invariant1, Scalar& invariant2,
+                                        int& base1, int& base2, int& base3,
+                                        int& base4, float& baseProbability, int first_point_index);
+    bool ComputeRigidTransformFromPPF(int reference_point_index,
+                                      std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
 private:
     void initKdTree();
 

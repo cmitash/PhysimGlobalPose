@@ -3,6 +3,9 @@ project(physim_pose_estimation)
 
 set(PCL_DIR /home/chaitanya/software/pcl-pcl-1.7.2/build)
 find_package (PCL REQUIRED COMPONENTS io common visualization features) 
+find_package(libpointmatcher 1.1.0 REQUIRED)
+include_directories("${libpointmatcher_INCLUDE_DIRS}")
+message(STATUS "Using libpointmatcher version ${libpointmatcher_VERSION}")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -11,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs 
   cv_bridge
   pcl_ros
+  # ppfmap
   tf
   image_transport 
   image_geometry
@@ -114,4 +118,5 @@ target_link_libraries(physim_pose_estimation
   ${CATKIN_DEVEL_PREFIX}/lib/libsuper4pcs.so
   ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}/libdepth_sim.so
   ${BULLET_LIBS}
+  ${libpointmatcher_LIBRARIES}
 )

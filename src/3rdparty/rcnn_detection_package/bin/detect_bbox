@@ -57,19 +57,32 @@ class detection:
         tl_y = blist[:,1]
         br_x = blist[:,2]
         br_y = blist[:,3]
-        for i in range(0,len(active_object_list)):
-            mask_img = np.zeros((height,width), np.uint8)
-            mask_img[int(tl_y[i]):int(br_y[i]),int(tl_x[i]):int(br_x[i])] = 1
+        for i in range(1,9):
             bbox_img = cv_image.copy()
             cv2.rectangle(bbox_img,(int(tl_x[i]),int(tl_y[i])),(int(br_x[i]),int(br_y[i])),255,1)
-            cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.bbox.png',bbox_img)
-            cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.mask.png',mask_img)
-            file = open(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.score.txt','w')
-            file.write("%f" % (slist[i]))
-            file.close()
+            cv2.imwrite(directory + '/frame-' + active_frame + str(i) + '.bbox.png',bbox_img)
         return np.int64(active_object_list), tl_x, tl_y, br_x, br_y, slist 
     else:
         return np.int64([]), np.int64([]), np.int64([]), np.int64([]), np.int64([]), np.int64([])
+
+    # if len(bboxlist) > 0:
+    #     tl_x = blist[:,0]
+    #     tl_y = blist[:,1]
+    #     br_x = blist[:,2]
+    #     br_y = blist[:,3]
+    #     for i in range(0,len(active_object_list)):
+    #         mask_img = np.zeros((height,width), np.uint8)
+    #         mask_img[int(tl_y[i]):int(br_y[i]),int(tl_x[i]):int(br_x[i])] = 1
+    #         bbox_img = cv_image.copy()
+    #         cv2.rectangle(bbox_img,(int(tl_x[i]),int(tl_y[i])),(int(br_x[i]),int(br_y[i])),255,1)
+    #         cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.bbox.png',bbox_img)
+    #         cv2.imwrite(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.mask.png',mask_img)
+    #         file = open(directory + '/frame-' + active_frame + '.' + apc_objects_strs[active_object_list[i]-1] + '.score.txt','w')
+    #         file.write("%f" % (slist[i]))
+    #         file.close()
+    #     return np.int64(active_object_list), tl_x, tl_y, br_x, br_y, slist 
+    # else:
+    #     return np.int64([]), np.int64([]), np.int64([]), np.int64([]), np.int64([]), np.int64([])
 
 def update_active_object_list_and_frame(req):
     global active_object_list

@@ -46,10 +46,18 @@ def detect(net, im, objlist):
         cls_scores_sorted = sorted(cls_scores)
         
         sort_index = np.argsort(cls_scores)
-        bbox = (cls_boxes[sort_index[-1], :4])
+        # bbox = (cls_boxes[sort_index[-1], :4])
 
-        bboxlist.append(bbox)
-        scorelist.append(cls_scores_sorted[-1])
+        print ('here')
+        for j in range(1,10):
+            print (j)
+            bbox = (cls_boxes[sort_index[0-j], :4])
+            score = cls_scores_sorted[0-j]
+            bboxlist.append(bbox)
+            scorelist.append(score)
+
+        # bboxlist.append(bbox)
+        # scorelist.append(cls_scores_sorted[-1])
     return bboxlist, scorelist
 
 def parse_args():

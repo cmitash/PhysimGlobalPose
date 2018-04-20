@@ -34,6 +34,7 @@ void publishMarkers(std::vector<visualization_msgs::Marker> &marker, std::vector
 
     utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
     pub.publish (utilities::pc_viz);
+    ros::Duration(0.1).sleep();
   }
 }
 
@@ -114,7 +115,6 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
            <<"camera intrinsics: "<< std::endl << currScene->camIntrinsic << std::endl;
 
   currScene->removeTable();
-  // currScene->getTableParams();
   currScene->perfromSegmentation(pCfg);
   currScene->generateHypothesis();
   currScene->performHypothesisSelection();

@@ -13,6 +13,7 @@ namespace hypothesis_selection{
 		~HypothesisSelection();
 
 		virtual void selectBestPoses(scene_cfg::SceneCfg *pCfg){}
+		void greedyClustering(scene_cfg::SceneCfg *pCfg, int objId);
 	};
 
 	class LCPSelection: public HypothesisSelection{

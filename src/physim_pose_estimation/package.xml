@@ -20,6 +20,8 @@
   <build_depend> message_generation </build_depend>
   <build_depend> geometry_msgs </build_depend>
   <build_depend> super4pcs </build_depend>
+  <!-- <build_depend> ppfmap </build_depend> -->
+  <!-- <run_depend>ppfmap</run_depend> -->
   <run_depend>tf</run_depend>
   <run_depend>pcl_ros</run_depend>
   <run_depend>sensor_msgs</run_depend>

@@ -377,7 +377,13 @@ namespace scene_cfg{
 		// std::thread pcs_threads[numObjects];
 
 		for(int ii=0; ii<numObjects; ii++){
-			pSceneObjects[ii]->hypotheses = new pose_candidates::ObjectPoseCandidateSet();
+
+			if(!hypoGenMode.compare("PCS"))
+				pSceneObjects[ii]->hypotheses = new pose_candidates::CongruentSetMatching();
+			else if(!hypoGenMode.compare("PPF_HOUGH"))
+				pSceneObjects[ii]->hypotheses = new pose_candidates::PPFVoting();
+			else
+				pSceneObjects[ii]->hypotheses = new pose_candidates::CongruentSetMatching();
 
 			pSceneObjects[ii]->hypotheses->generate(pSceneObjects[ii]->pObject->objName, scenePath, 
 				pSceneObjects[ii]->pclSegment, pSceneObjects[ii]->pObject->pclModel, pSceneObjects[ii]->pObject->pclModelSampled,
