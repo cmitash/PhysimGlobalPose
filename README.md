@@ -1,9 +1,10 @@
 ## PhysimGlobalPose
 This repository implements a search-based technique for 6D pose estimation of objects in clutter as described in our paper.
-#### Improving 6D Pose Estimation of Objects in Clutter via Physics-aware Monte Carlo Tree Search ([pdf](https://arxiv.org/abs/1710.08577))([website](http://paul.rutgers.edu/~cm1074/research/icra18/MCTS.html))
+```
+Improving 6D Pose Estimation of Objects in Clutter via Physics-aware Monte Carlo Tree Search ([pdf](https://arxiv.org/abs/1710.08577))([website](http://paul.rutgers.edu/~cm1074/research/icra18/MCTS.html))
 By Chaitanya Mitash, Kostas Bekris, Abdeslam Boularias (Rutgers University).
-
 In Proceedings of the IEEE International Conference on Robotics and Automation (ICRA), Brisbane, Australia, 2018.
+```
 
 ### Setup
 1. Clone the repository.
