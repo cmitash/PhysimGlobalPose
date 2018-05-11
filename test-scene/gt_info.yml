@@ -1,0 +1,19 @@
+#pose: [t q]; where, t (translation) = [x y z] and q (quaternion) = [w x y z]
+camera:
+  camera_pose: [5.47767639e-01, -1.38075694e-01, 8.96193922e-01, 0.3257, -0.6139, 0.6876, -0.2102]
+  camera_intrinsics: [[6.13998108e+02, 0.00000000e+00, 3.22453583e+02],[0.00000000e+00, 6.13998169e+02, 2.39678940e+02],[0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]
+
+rest_surface:
+  type: table
+  surface_pose: [0, 0, 0.53, 1, 0, 0, 0]
+
+scene:
+  id: 4
+  num_objects: 3
+  dependency_order: [[1,2], [3]]
+  object_1:
+    name: 'kleenex_tissue_box'
+  object_2:
+    name: 'expo_dry_erase_board_eraser'
+  object_3:
+    name: 'folgers_classic_roast_coffee'

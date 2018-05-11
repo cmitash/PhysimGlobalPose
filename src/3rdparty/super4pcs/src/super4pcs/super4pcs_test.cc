@@ -73,7 +73,7 @@ void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std:
     exit(-1);
   }
 
-  if (!iomananger.ReadObject(("/home/chaitanya/github/PhysimGlobalPose/models/" + objName + "/hull.ply").c_str(), 
+  if (!iomananger.ReadObject(("/home/chaitanya/github/PhysimGlobalPose/src/physim_pose_estimation/models_search/" + objName + "/hull.ply").c_str(), 
                   set4, tex_coords4, normals4, tris4, mtls4)) {
     perror("Can't read input set4");
     exit(-1);
