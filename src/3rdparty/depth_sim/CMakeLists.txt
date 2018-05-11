@@ -97,8 +97,8 @@ add_library(${PROJECT_NAME}
 target_link_libraries (${PROJECT_NAME} ${Boost_LIBRARIES} ${catkin_LIBRARIES}
                        ${VTK_IO_TARGET_LINK_LIBRARIES}
                        ${GLEW_LIBRARIES} ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES}
-                       ${GLEW_LIBRARIES} libvtkCommon.so libvtkFiltering.so
-                       libvtkRendering.so libvtkIO.so)
+                       ${GLEW_LIBRARIES} /usr/lib/libvtkCommon.so.5.10 /usr/lib/libvtkFiltering.so.5.10
+                       /usr/lib/libvtkRendering.so.5.10 /usr/lib/libvtkIO.so.5.10)
 
 MESSAGE(yo ${CATKIN_PACKAGE_LIB_DESTINATION})
 install(TARGETS ${PROJECT_NAME}

@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(physim_pose_estimation)
 
-set(PCL_DIR /home/chaitanya/software/pcl-pcl-1.7.2/build)
 find_package (PCL REQUIRED COMPONENTS io common visualization features) 
 find_package(libpointmatcher 1.1.0 REQUIRED)
 include_directories("${libpointmatcher_INCLUDE_DIRS}")
@@ -14,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs 
   cv_bridge
   pcl_ros
-  # ppfmap
   tf
   image_transport 
   image_geometry

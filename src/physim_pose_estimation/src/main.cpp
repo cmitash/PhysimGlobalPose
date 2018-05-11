@@ -32,7 +32,7 @@ void publishMarkers(std::vector<visualization_msgs::Marker> &marker, std::vector
       marker_pub[ii].publish(marker[ii]);
     }
 
-    utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
+    utilities::pc_viz->header.frame_id = "/world";
     pub.publish (utilities::pc_viz);
     ros::Duration(0.1).sleep();
   }
@@ -46,7 +46,7 @@ void initMarkers(visualization_msgs::Marker &marker, ros::Publisher &marker_pub,
   marker_pub = pCfg->nh.advertise<visualization_msgs::Marker>(markerId, 1);
 
   // Set the frame ID and timestamp.  See the TF tutorials for information on these.
-  marker.header.frame_id = "/realsense_rgb_optical_frame";
+  marker.header.frame_id = "/world";
   marker.header.stamp = ros::Time::now();
 
   // Set the namespace and id for this marker.  This serves to create a unique ID
@@ -77,7 +77,7 @@ void initMarkers(visualization_msgs::Marker &marker, ros::Publisher &marker_pub,
   marker.mesh_use_embedded_materials = true;
 
   marker.lifetime = ros::Duration();
-  marker.mesh_resource = "package://turtlesim/" + objName + ".ply";
+  marker.mesh_resource = "package://physim_pose_estimation/models_visualization/" + objName + ".ply";
 }
 
 /********************************* function: estimatePose ***********************************************
@@ -116,8 +116,18 @@ bool estimatePose(physim_pose_estimation::EstimateObjectPose::Request &req,
 
   currScene->removeTable();
   currScene->perfromSegmentation(pCfg);
+  
+  clock_t time_start = clock ();
+  
   currScene->generateHypothesis();
   currScene->performHypothesisSelection();
+
+  float total_time = float( clock () - time_start ) /  CLOCKS_PER_SEC;
+
+  // ofstream pFile;
+  // pFile.open ("/media/chaitanya/DATADRIVE0/datasets/YCB_Video_Dataset/time.txt", std::ofstream::out | std::ofstream::app);
+  // pFile << total_time << std::endl;
+  // pFile.close();
   
   copyPointCloud(*currScene->sceneCloud, *utilities::pc_viz);
 
@@ -187,13 +197,13 @@ int main(int argc, char **argv){
     identity_pose.orientation.w = 1;
     utilities::anyTimePoseArray.insert(std::make_pair(pCfg->gObjects[ii]->objName, identity_pose));
   }
-  ros::Publisher pub = pCfg->nh.advertise<PointCloudRGB> ("pointsViz", 1);
+  ros::Publisher pub = pCfg->nh.advertise<PointCloudRGB> ("scene_cloud", 1);
   PointCloudRGB::Ptr DummySceneCloud(new PointCloudRGB);
   DummySceneCloud->points.push_back (pcl::PointXYZRGB(1.0, 2.0, 3.0));
   utilities::pc_viz = PointCloudRGB::Ptr(new PointCloudRGB);
   utilities::pc_viz->resize(1);
   copyPointCloud(*DummySceneCloud, *utilities::pc_viz);
-  utilities::pc_viz->header.frame_id = "/realsense_rgb_optical_frame";
+  utilities::pc_viz->header.frame_id = "/world";
 
   std::thread marker_thread (publishMarkers, std::ref(markers), std::ref(marker_pubs), pub);
 

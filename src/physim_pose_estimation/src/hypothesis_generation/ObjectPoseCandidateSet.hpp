@@ -16,7 +16,9 @@ namespace pose_candidates{
 				int max_count_ppf, Eigen::Matrix4f camPose, Eigen::Matrix3f camIntrinsic){}
 
 		std::vector< std::pair <Eigen::Isometry3d, float> > hypothesisSet;
+		std::vector< std::pair <Eigen::Isometry3d, float> > clusteredHypothesisSet;
 		std::pair <Eigen::Isometry3d, float> bestHypothesis;
+		std::vector<int> registered_points;
 	};
 
 	class CongruentSetMatching: public ObjectPoseCandidateSet{

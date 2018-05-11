@@ -679,6 +679,30 @@ namespace utilities{
 		utilities::convertToIsometry3d(tform, finalTransform);
 	}
 
+	/********************************* function: performICP **********************************************
+	*******************************************************************************************************/
+
+	void performICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
+		Eigen::Matrix4f &offsetTransform){
+		PointCloud::Ptr modelCloud (new PointCloud);
+		PointCloud::Ptr segmentCloud (new PointCloud);
+
+		Eigen::Matrix4f tform;
+		
+		copyPointCloud(*pclModel, *modelCloud);
+		copyPointCloud(*pclSegment, *segmentCloud);
+
+		// initialize trimmed ICP
+		pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+		icp.setMaximumIterations ( 100 );
+		icp.setInputCloud(segmentCloud);
+		icp.setInputTarget(modelCloud);
+		pcl::PointCloud<pcl::PointXYZ> Final;
+		icp.align(Final);
+		offsetTransform = icp.getFinalTransformation();
+	}
+
 	/********************************* function: pointToPlaneICP *******************************************
 	*******************************************************************************************************/
 
@@ -686,13 +710,17 @@ namespace utilities{
 		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
 		Eigen::Matrix4f &offsetTransform){
 
-		PointCloudRGBNormal::Ptr modelCloud (new PointCloudRGBNormal);
-		PointCloudRGBNormal::Ptr segmentCloud (new PointCloudRGBNormal);
-		PointCloudRGBNormal segCloudTrans;
+		PointCloudNormal::Ptr modelCloud (new PointCloudNormal);
+		PointCloudNormal::Ptr segmentCloud (new PointCloudNormal);
+		PointCloudNormal segCloudTrans;
 		copyPointCloud(*pclModel, *modelCloud);
 		copyPointCloud(*pclSegment, *segmentCloud);
 
-	    pcl::IterativeClosestPointWithNormals<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal>::Ptr icp ( new pcl::IterativeClosestPointWithNormals<pcl::PointXYZRGBNormal, pcl::PointXYZRGBNormal> () );
+		std::vector< int > indices;
+		pcl::removeNaNNormalsFromPointCloud(*modelCloud, *modelCloud, indices);
+		pcl::removeNaNNormalsFromPointCloud(*segmentCloud, *segmentCloud, indices);
+
+	    pcl::IterativeClosestPointWithNormals<pcl::PointNormal, pcl::PointNormal>::Ptr icp ( new pcl::IterativeClosestPointWithNormals<pcl::PointNormal, pcl::PointNormal> () );
    	    icp->setMaximumIterations ( 100 );
    	    icp->setInputSource ( segmentCloud ); // not cloud_source, but cloud_source_trans!
    	    icp->setInputTarget ( modelCloud );
@@ -721,9 +749,87 @@ namespace utilities{
 		const DP data(DP::load(dataPath));
 
 		PM::ICP icp;
-		icp.setDefault();
+
+		PointMatcherSupport::Parametrizable::Parameters params;
+		std::string name;
+
+		// Prepare reading filters
+		name = "RandomSamplingDataPointsFilter";
+		params["prob"] = "1.0";
+		PM::DataPointsFilter* rand_read = 
+			PM::get().DataPointsFilterRegistrar.create(name, params);
+		params.clear();
+
+		// Prepare reference filters
+		name = "RandomSamplingDataPointsFilter";
+		params["prob"] = "1.0";
+		PM::DataPointsFilter* rand_ref = 
+			PM::get().DataPointsFilterRegistrar.create(name, params);
+		params.clear();
+
+		// Prepare matching function
+		name = "KDTreeMatcher";
+		params["knn"] = "1";
+		params["epsilon"] = "3.16";
+		PM::Matcher* kdtree = 
+			PM::get().MatcherRegistrar.create(name, params);
+		params.clear();
+
+		// Prepare outlier filters
+		name = "TrimmedDistOutlierFilter";
+		params["ratio"] = "0.75";
+		PM::OutlierFilter* trim = 
+			PM::get().OutlierFilterRegistrar.create(name, params);
+		params.clear();
+
+		// Prepare error minimization
+		name = "PointToPointErrorMinimizer";
+		PM::ErrorMinimizer* pointToPoint =   
+			PM::get().ErrorMinimizerRegistrar.create(name);
+
+		// Prepare transformation checker filters
+		name = "CounterTransformationChecker";
+		params["maxIterationCount"] = "100";
+		PM::TransformationChecker* maxIter = 
+			PM::get().TransformationCheckerRegistrar.create(name, params);
+		params.clear();
+
+		name = "DifferentialTransformationChecker";
+		params["minDiffRotErr"] = "0.001";
+		params["minDiffTransErr"] = "0.005";
+		params["smoothLength"] = "4";
+		PM::TransformationChecker* diff = 
+			PM::get().TransformationCheckerRegistrar.create(name, params);
+		params.clear();
+
+		// Prepare inspector
+		PM::Inspector* nullInspect =
+			PM::get().InspectorRegistrar.create("NullInspector");
+		params.clear();
+		
+		// Prepare transformation
+		PM::Transformation* rigidTrans =
+			PM::get().TransformationRegistrar.create("RigidTransformation");
+		
+		// Build ICP solution
+		icp.readingDataPointsFilters.push_back(rand_read);
+		icp.referenceDataPointsFilters.push_back(rand_ref);
+
+		icp.matcher.reset(kdtree);
+		
+		icp.outlierFilters.push_back(trim);
+		
+		icp.errorMinimizer.reset(pointToPoint);
+
+		icp.transformationCheckers.push_back(maxIter);
+		icp.transformationCheckers.push_back(diff);
+		
+		// toggle to write vtk files per iteration
+		icp.inspector.reset(nullInspect);
+		icp.transformations.push_back(rigidTrans);
+
+		// icp.setDefault();
 		PM::TransformationParameters T = icp(data, ref);
-		std::cout << "Final transformation:" << endl << T << endl;
 
 		offsetTransform << T(0, 0), T(0, 1), T(0, 2), T(0, 3), 
 						   T(1, 0), T(1, 1), T(1, 2), T(1, 3), 

@@ -63,6 +63,7 @@
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloudRGB;
 typedef pcl::PointCloud<pcl::PointXYZRGBNormal> PointCloudRGBNormal;
+typedef pcl::PointCloud<pcl::PointNormal> PointCloudNormal;
 
 typedef PointMatcher<float> PM;
 typedef PM::DataPoints DP;
@@ -116,6 +117,9 @@ namespace utilities{
 		Eigen::Matrix4f &offsetTransform);
 	void pointMatcherICP(std::string refPath, 
 		std::string dataPath, 
+		Eigen::Matrix4f &offsetTransform);
+	void performICP(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclSegment, 
+		pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr pclModel, 
 		Eigen::Matrix4f &offsetTransform);
 }
 

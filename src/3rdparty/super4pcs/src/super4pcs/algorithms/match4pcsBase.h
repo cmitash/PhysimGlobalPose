@@ -127,7 +127,7 @@ public:
                           Eigen::Isometry3d &bestPose,
                           std::vector< std::pair <Eigen::Isometry3d, float> > &allPose,
                           std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf,
-                          Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath);
+                          Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath, std::vector<int> &registered_points);
 
 protected:
     // Number of trials. Every trial picks random base from P.
@@ -151,6 +151,8 @@ protected:
     // The transformation matrix by wich we transform Q to P
     Eigen::Matrix<Scalar, 4, 4> transform_;
     std::vector<Eigen::Matrix<Scalar, 4, 4> > allTransforms;
+    Eigen::Matrix<Scalar, 4, 4> best_transform;
+
     // Sampled P (3D coordinates).
     std::vector<Point3D> sampled_P_3D_;
     // Sampled Q (3D coordinates).
@@ -198,6 +200,7 @@ protected:
     int rot_disc;
     // set of all bases sampled from P
     std::vector<Super4PCS::BaseGraph*> baseSet;
+    std::vector<int> registered_indices;
 protected:
 
     Match4PCSBase(const match_4pcs::Match4PCSOptions& options);
@@ -242,8 +245,8 @@ protected:
     // in Q. Returns the current LCP. R is the rotation matrix, (tx,ty,tz) is
     // the translation vector and (cx,cy,cz) is the center of transformation.template <class MatrixDerived>
     Scalar Verify(const Eigen::Ref<const MatrixType> & mat);
-    Scalar WeightedVerify(const Eigen::Ref<const MatrixType> &mat);
-    Scalar verifyRigidTransform(Eigen::Matrix<Scalar, 4, 4> transform);
+    Scalar WeightedVerify(const Eigen::Ref<const MatrixType> &mat, std::vector<int> &temp_registered_indices);
+    Scalar verifyRigidTransform(Eigen::Matrix<Scalar, 4, 4> transform, std::vector<int> &temp_registered_indices);
     
     // Performs n RANSAC iterations, each one of them containing base selection,
     // finding congruent sets and verification. Returns true if the process can be
@@ -368,6 +371,7 @@ public:
                                         int& base4, float& baseProbability, int first_point_index);
     bool ComputeRigidTransformFromPPF(int reference_point_index,
                                       std::vector< std::pair <Eigen::Isometry3d, float> > &allPose);
+    void getRegisteredModel(const Eigen::Ref<const MatrixType> &mat);
 private:
     void initKdTree();
 

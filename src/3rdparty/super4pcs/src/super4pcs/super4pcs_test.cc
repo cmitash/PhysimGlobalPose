@@ -40,7 +40,7 @@ void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std:
       std::pair <Eigen::Isometry3d, float> &bestHypothesis, 
       std::vector< std::pair <Eigen::Isometry3d, float> > &hypothesisSet,
       std::string probImagePath, std::map<std::vector<int>, std::vector<std::pair<int,int> > > &PPFMap, int max_count_ppf, 
-      Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath) {
+      Eigen::Matrix3f camIntrinsic, std::string objName, std::string scenePath, std::vector<int> &registered_points) {
 
   using namespace Super4PCS;
 
@@ -100,7 +100,8 @@ void getProbableTransformsSuper4PCS(std::string input1, std::string input2, std:
 
   try {
     MatchSuper4PCS matcher(options);
-    bestscore = matcher.ComputeTransformation(set1, &set3, &set2, &set4, bestPose, hypothesisSet, probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName, scenePath);
+    bestscore = matcher.ComputeTransformation(set1, &set3, &set2, &set4, bestPose, hypothesisSet,
+     probImagePath, PPFMap, max_count_ppf, camIntrinsic, objName, scenePath, registered_points);
   }
   catch (...) {
     std::cout << "[Unknown Error]: Aborting with code -3 ..." << std::endl;
